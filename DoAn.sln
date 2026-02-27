@@ -1,0 +1,48 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.5.2.0
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "PPE_Detection_App", "PPE_Detection_App", "{94FCDB7A-BBF8-8411-6C4C-06B03B3C8341}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Backend", "Backend", "{480000F9-1B3E-408F-58DD-C03C16242184}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{4F81A9B0-1B05-7935-9E06-B3C2D3C31CBB}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PPE_Detection_App.Api", "PPE_Detection_App\Backend\src\PPE_Detection_App.Api\PPE_Detection_App.Api.csproj", "{32CF72D3-8FCA-8581-BE55-4C740920DEAF}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Debug|x64 = Debug|x64
+		Debug|x86 = Debug|x86
+		Release|Any CPU = Release|Any CPU
+		Release|x64 = Release|x64
+		Release|x86 = Release|x86
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{32CF72D3-8FCA-8581-BE55-4C740920DEAF}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{32CF72D3-8FCA-8581-BE55-4C740920DEAF}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{32CF72D3-8FCA-8581-BE55-4C740920DEAF}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{32CF72D3-8FCA-8581-BE55-4C740920DEAF}.Debug|x64.Build.0 = Debug|Any CPU
+		{32CF72D3-8FCA-8581-BE55-4C740920DEAF}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{32CF72D3-8FCA-8581-BE55-4C740920DEAF}.Debug|x86.Build.0 = Debug|Any CPU
+		{32CF72D3-8FCA-8581-BE55-4C740920DEAF}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{32CF72D3-8FCA-8581-BE55-4C740920DEAF}.Release|Any CPU.Build.0 = Release|Any CPU
+		{32CF72D3-8FCA-8581-BE55-4C740920DEAF}.Release|x64.ActiveCfg = Release|Any CPU
+		{32CF72D3-8FCA-8581-BE55-4C740920DEAF}.Release|x64.Build.0 = Release|Any CPU
+		{32CF72D3-8FCA-8581-BE55-4C740920DEAF}.Release|x86.ActiveCfg = Release|Any CPU
+		{32CF72D3-8FCA-8581-BE55-4C740920DEAF}.Release|x86.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{480000F9-1B3E-408F-58DD-C03C16242184} = {94FCDB7A-BBF8-8411-6C4C-06B03B3C8341}
+		{4F81A9B0-1B05-7935-9E06-B3C2D3C31CBB} = {480000F9-1B3E-408F-58DD-C03C16242184}
+		{32CF72D3-8FCA-8581-BE55-4C740920DEAF} = {4F81A9B0-1B05-7935-9E06-B3C2D3C31CBB}
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {7B0AEDCE-80BD-476F-8532-01C2C88E85E2}
+	EndGlobalSection
+EndGlobal
