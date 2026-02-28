@@ -1,4 +1,4 @@
-﻿using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc;
 using PPE_Detection_App.Api.Services;
 using PPE_Detection_App.Api.Models;
 using SixLabors.ImageSharp;
@@ -47,6 +47,9 @@ namespace PPE_Detection_App.Api.Controllers
                 allViolations.AddRange(safetyIssues);
                 allViolations.AddRange(falls);
 
+                var savedViolations = new List<string>();
+                var validCategories = await _dbService.GetAllCategoriesAsync();
+
                 if (allViolations.Any())
                 {
                     string webRootPath = _env.WebRootPath ?? Path.Combine(Directory.GetCurrentDirectory(), "wwwroot");
@@ -59,20 +62,26 @@ namespace PPE_Detection_App.Api.Controllers
                     string dbImagePath = $"/violations/{fileName}";
 
                     await image.SaveAsJpegAsync(fullPath);
+                    
+                    var validCategoryIds = new HashSet<string>(validCategories.Select(c => c.Id), StringComparer.OrdinalIgnoreCase);
 
                     foreach (var issue in allViolations)
                     {
-                        var log = new ViolationLog
+                        if (validCategoryIds.Contains(issue.Label))
                         {
-                            Category_Id = issue.Label,
-                            Image_Path = dbImagePath,
-                            Confidence_Score = Math.Round(issue.Confidence, 3),
-                            Box_X = Math.Round(issue.Box.X, 2),
-                            Box_Y = Math.Round(issue.Box.Y, 2),
-                            Box_W = Math.Round(issue.Box.Width, 2),
-                            Box_H = Math.Round(issue.Box.Height, 2)
-                        };
-                        await _dbService.InsertViolationLogAsync(log);
+                            var log = new ViolationLog
+                            {
+                                Category_Id = issue.Label,
+                                Image_Path = dbImagePath,
+                                Confidence_Score = Math.Round(issue.Confidence, 3),
+                                Box_X = Math.Round(issue.Box.X, 2),
+                                Box_Y = Math.Round(issue.Box.Y, 2),
+                                Box_W = Math.Round(issue.Box.Width, 2),
+                                Box_H = Math.Round(issue.Box.Height, 2)
+                            };
+                            await _dbService.InsertViolationLogAsync(log);
+                            savedViolations.Add(issue.Label);
+                        }
                     }
                 }
 
@@ -96,7 +105,10 @@ namespace PPE_Detection_App.Api.Controllers
                         isFallDetected = d.Label == "Fall-Detected",
                         box = new { x = Math.Round(d.Box.X, 2), y = Math.Round(d.Box.Y, 2), width = Math.Round(d.Box.Width, 2), height = Math.Round(d.Box.Height, 2) }
                     }).OrderByDescending(d => d.confidence),
-                    processedAt = DateTime.UtcNow
+                    processedAt = DateTime.UtcNow,
+                    debug_allViolationLabels = allViolations.Select(v => v.Label).ToList(),
+                    debug_availableCategories = validCategories.Select(c => c.Id).ToList(),
+                    debug_savedViolationLabels = savedViolations
                 });
             }
             catch (Exception ex)
