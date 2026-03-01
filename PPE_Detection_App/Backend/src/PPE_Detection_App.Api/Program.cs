@@ -82,12 +82,13 @@ builder.Services.AddSingleton<DatabaseService>();
 builder.Services.AddScoped<AuthService>();
 builder.Services.AddScoped<ViolationRepository>();
 builder.Services.AddScoped<DashboardStatisticService>();
+builder.Services.AddSingleton<CameraStreamService>();
 
 var modelPath = Path.GetFullPath(Path.Combine(builder.Environment.ContentRootPath, "..", "..", "..", "AITooling", "yolo_model", "best.onnx"));
 if (!File.Exists(modelPath)) throw new FileNotFoundException($"Model file not found at: {modelPath}");
 
 builder.Services.AddSingleton(new InferenceSession(modelPath));
-builder.Services.AddSingleton<YoloV8Processor>();
+builder.Services.AddScoped<YoloV8Processor>();
 
 var app = builder.Build();
 

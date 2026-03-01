@@ -1,6 +1,219 @@
-﻿namespace PPE_Detection_App.Api.Services
+using OpenCvSharp;
+using OpenCvSharp.Extensions;
+using SixLabors.ImageSharp;
+using SixLabors.ImageSharp.PixelFormats;
+using System.Collections.Concurrent;
+using System.Drawing.Imaging;
+using PPE_Detection_App.Api.Models;
+using SixLabors.ImageSharp.Processing;
+using SixLabors.ImageSharp.Drawing.Processing;
+using SixLabors.Fonts;
+
+namespace PPE_Detection_App.Api.Services
 {
-    public class CameraStreamService
+    public class CameraStreamService : IDisposable
     {
+        private readonly IServiceProvider _serviceProvider;
+        private readonly ILogger<CameraStreamService> _logger;
+        private readonly ConcurrentDictionary<int, CancellationTokenSource> _activeCameras = new();
+        private readonly List<string> _violationLabels = new List<string> { "NO-Gloves", "NO-Goggles", "NO-Hardhat", "NO-Mask", "NO-Safety Vest" };
+        private readonly string _outputDirectory;
+        
+        private readonly ConcurrentDictionary<string, DateTime> _lastDetectionTimestamps = new();
+        private const int ViolationCooldownSeconds = 10;
+
+        public CameraStreamService(IServiceProvider serviceProvider, ILogger<CameraStreamService> logger, IWebHostEnvironment env)
+        {
+            _serviceProvider = serviceProvider;
+            _logger = logger;
+            _outputDirectory = Path.Combine(env.WebRootPath, "violations");
+            if (!Directory.Exists(_outputDirectory))
+            {
+                Directory.CreateDirectory(_outputDirectory);
+            }
+        }
+        public bool IsProcessing(int cameraId) => _activeCameras.ContainsKey(cameraId);
+        public void StartProcessing(int cameraId)
+        {
+            if (IsProcessing(cameraId))
+            {
+                _logger.LogWarning($"Processing for camera {cameraId} is already running.");
+                return;
+            }
+            
+            _lastDetectionTimestamps.Clear(); 
+
+            var cts = new CancellationTokenSource();
+            if (_activeCameras.TryAdd(cameraId, cts))
+            {
+                Task.Run(() => ProcessCameraFeed(cameraId, cts.Token), cts.Token);
+                _logger.LogInformation($"Started processing for camera {cameraId}.");
+            }
+        }
+        public void StopProcessing(int cameraId)
+        {
+            if (_activeCameras.TryRemove(cameraId, out var cts))
+            {
+                cts.Cancel();
+                cts.Dispose();
+                _logger.LogInformation($"Stopped processing for camera {cameraId}.");
+            }
+        }
+
+        private async Task ProcessCameraFeed(int cameraId, CancellationToken cancellationToken)
+        {
+            using var capture = new VideoCapture(cameraId);
+            if (!capture.IsOpened())
+            {
+                _logger.LogError($"Error: Could not open camera {cameraId}.");
+                _activeCameras.TryRemove(cameraId, out _);
+                return;
+            }
+
+            capture.FrameWidth = 1280;
+            capture.FrameHeight = 720;
+            var frame = new Mat();
+
+            while (!cancellationToken.IsCancellationRequested)
+            {
+                if (!capture.Read(frame) || frame.Empty())
+                {
+                    await Task.Delay(100, cancellationToken);
+                    continue;
+                }
+
+                try
+                {
+                    using var bitmap = BitmapConverter.ToBitmap(frame);
+                    using var image = ConvertToImageSharp(bitmap);
+
+                    using var scope = _serviceProvider.CreateScope();
+                    var yoloProcessor = scope.ServiceProvider.GetRequiredService<YoloV8Processor>();
+                    var violationRepo = scope.ServiceProvider.GetRequiredService<ViolationRepository>();
+
+                    var detections = yoloProcessor.ProcessImage(image);
+
+                    var allViolationDetections = detections.Where(d => _violationLabels.Contains(d.Label)).ToList();
+                    
+                    var eligibleDetections = new List<DetectionResult>();
+                    if (allViolationDetections.Any())
+                    {
+                        var now = DateTime.UtcNow;
+                        foreach (var detection in allViolationDetections)
+                        {
+                            if (!_lastDetectionTimestamps.TryGetValue(detection.Label, out var lastTime) || 
+                                (now - lastTime).TotalSeconds > ViolationCooldownSeconds)
+                            {
+                                eligibleDetections.Add(detection);
+                                _lastDetectionTimestamps[detection.Label] = now;
+                            }
+                        }
+                    }
+
+                    if (eligibleDetections.Any())
+                    {
+                        foreach (var detection in allViolationDetections)
+                        {
+                            DrawBoundingBox(image, detection, isOnCooldown: !eligibleDetections.Contains(detection));
+                        }
+                        await HandleViolations(eligibleDetections, image, violationRepo);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, $"Error processing frame from camera {cameraId}.");
+                }
+
+                await Task.Delay(200, cancellationToken);
+            }
+        }
+
+        private static Image<Rgba32> ConvertToImageSharp(System.Drawing.Bitmap bitmap)
+        {
+            using var ms = new MemoryStream();
+            bitmap.Save(ms, ImageFormat.Png);
+            ms.Seek(0, SeekOrigin.Begin);
+            return SixLabors.ImageSharp.Image.Load<Rgba32>(ms);
+        }
+
+        private void DrawBoundingBox(Image image, DetectionResult detection, bool isOnCooldown = false)
+        {
+            var box = detection.Box;
+            var label = $"{detection.Label} ({detection.Confidence:P0})";
+
+            Font font;
+            if (SystemFonts.TryGet("Arial", out var fontFamily))
+            {
+                font = new Font(fontFamily, 16);
+            }
+            else
+            {
+                var firstFamily = SystemFonts.Families.FirstOrDefault();
+                font = firstFamily != null ? new Font(firstFamily, 16) : SystemFonts.CreateFont("Arial", 16);
+            }
+
+            var color = isOnCooldown ? Color.Yellow : Color.Red;
+            var thickness = 2f;
+
+            var rect = new RectangleF((float)box.Left, (float)box.Top, (float)box.Width, (float)box.Height);
+
+            image.Mutate(x =>
+            {
+                x.Draw(color, thickness, rect);
+
+                var textSize = TextMeasurer.MeasureSize(label, new TextOptions(font));
+                var textLocation = new PointF(rect.Left, rect.Top - textSize.Height - 5);
+
+                if (textLocation.Y < 0)
+                {
+                    textLocation.Y = rect.Top + 5;
+                }
+
+                var textBackground = new RectangleF(textLocation.X, textLocation.Y, textSize.Width + 4, textSize.Height + 2);
+                x.Fill(Color.Black, textBackground);
+                x.DrawText(label, font, color, new PointF(textLocation.X + 2, textLocation.Y + 1));
+            });
+        }
+
+        private async Task HandleViolations(List<DetectionResult> detections, Image<Rgba32> image, ViolationRepository repo)
+        {
+            if (!detections.Any()) return;
+
+            var timestamp = DateTime.Now.ToString("yyyyMMdd_HHmmss");
+            var randomSuffix = Path.GetRandomFileName().Split('.')[0].Substring(0, 4);
+            var fileName = $"violation_{timestamp}_{randomSuffix}.jpg";
+            var imagePath = Path.Combine(_outputDirectory, fileName);
+            var relativePath = $"/violations/{fileName}";
+
+            await image.SaveAsJpegAsync(imagePath);
+
+            foreach (var detection in detections)
+            {
+                var log = new ViolationLog
+                {
+                    Category_Id = detection.Label,
+                    Image_Path = relativePath, 
+                    Confidence_Score = detection.Confidence,
+                    Box_X = detection.Box.Left,
+                    Box_Y = detection.Box.Top,
+                    Box_W = detection.Box.Width,
+                    Box_H = detection.Box.Height,
+                    Detected_Time = DateTime.Now,
+                    Status = 0
+                };
+                await repo.InsertViolationLogAsync(log);
+            }
+
+            _logger.LogInformation($"{detections.Count} new violations logged. Image saved to {imagePath}");
+        }
+
+        public void Dispose()
+        {
+            var keys = _activeCameras.Keys.ToList();
+            foreach (var key in keys)
+            {
+                StopProcessing(key);
+            }
+        }
     }
 }
