@@ -365,11 +365,63 @@ namespace PPE_Detection_App.Api.Services
             };
         }
 
+        public async Task<List<AdminUser>> GetAllAdminUsersAsync()
+        {
+            using var connection = new SqlConnection(_connectionString);
+            string sql = "SELECT * FROM Admin_User WHERE Is_Deleted = 0 ORDER BY Username";
+            var result = await connection.QueryAsync<AdminUser>(sql);
+            return result.ToList();
+        }
+
         public async Task<IEnumerable<ViolationCategory>> GetAllCategoriesAsync()
         {
             using var connection = new SqlConnection(_connectionString);
             string sql = "SELECT * FROM Violation_Category WHERE Is_Deleted = 0 ORDER BY Severity_Level DESC";
             return await connection.QueryAsync<ViolationCategory>(sql);
         }
-    }
-}
+
+        public async Task<AdminUser?> GetAdminUserByUsernameAsync(string username)
+        {
+            using var connection = new SqlConnection(_connectionString);
+            string sql = "SELECT * FROM Admin_User WHERE Username = @Username AND Is_Deleted = 0";
+            return await connection.QueryFirstOrDefaultAsync<AdminUser>(sql, new { Username = username });
+        }
+
+                public async Task CreateAdminUserAsync(AdminUser user)
+
+                {
+
+                    using var connection = new SqlConnection(_connectionString);
+
+                    string sql = @"
+
+                        INSERT INTO Admin_User (Username, Password_Hash, Full_Name, Role, Is_Deleted)
+
+                        VALUES (@Username, @Password_Hash, @Full_Name, @Role, 0)";
+
+                    await connection.ExecuteAsync(sql, user);
+
+                }
+
+        
+
+                public async Task UpdateUserPasswordHashAsync(string username, string passwordHash)
+
+                {
+
+                    using var connection = new SqlConnection(_connectionString);
+
+                    string sql = @"
+
+                        UPDATE Admin_User 
+
+                        SET Password_Hash = @PasswordHash 
+
+                        WHERE Username = @Username";
+
+                    await connection.ExecuteAsync(sql, new { Username = username, PasswordHash = passwordHash });
+
+                }
+            }
+
+        }

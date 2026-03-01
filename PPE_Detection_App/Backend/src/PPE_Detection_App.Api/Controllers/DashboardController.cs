@@ -7,12 +7,10 @@ namespace PPE_Detection_App.Api.Controllers
     [Route("api/[controller]")]
     public class DashboardController : ControllerBase
     {
-        // Khai báo 2 service mới thay cho DatabaseService cũ
         private readonly DashboardStatisticService _dashboardService;
         private readonly ViolationRepository _violationRepo;
         private readonly ILogger<DashboardController> _logger;
 
-        // Inject 2 service vào constructor
         public DashboardController(
             DashboardStatisticService dashboardService,
             ViolationRepository violationRepo,
@@ -38,7 +36,6 @@ namespace PPE_Detection_App.Api.Controllers
 
                 _logger.LogInformation("Fetching dashboard data from {StartDate} to {EndDate}", startDate, today);
 
-                // Sử dụng _dashboardService cho các tác vụ thống kê
                 var todaySummaryTask = _dashboardService.GetDashboardSummaryAsync(today);
                 var violationsByDateTask = _dashboardService.GetViolationStatsByDateAsync(startDate, today);
                 var violationsByCategoryTask = _dashboardService.GetViolationStatsByCategoryAsync(startDate, today);
@@ -62,7 +59,6 @@ namespace PPE_Detection_App.Api.Controllers
                 var peakHours = await peakHoursTask;
                 var trend = await trendTask;
 
-                // Lấy display name cho top category bằng _violationRepo
                 string? topCategoryName = null;
                 if (!string.IsNullOrEmpty(todaySummary.TopCategory))
                 {
