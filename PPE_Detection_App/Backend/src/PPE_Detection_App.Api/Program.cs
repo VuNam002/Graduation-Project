@@ -1,4 +1,4 @@
-using Microsoft.ML.OnnxRuntime;
+﻿using Microsoft.ML.OnnxRuntime;
 using Microsoft.OpenApi.Models;
 using PPE_Detection_App.Api.Filters;
 using PPE_Detection_App.Api.Services;
@@ -19,8 +19,9 @@ builder.Services.AddCors(options =>
     options.AddPolicy("AllowAll", policy => { policy.AllowAnyOrigin().AllowAnyMethod().AllowAnyHeader(); });
 });
 
-
-builder.Services.AddScoped<DatabaseService>(); 
+//Đăng ký Services
+builder.Services.AddScoped<ViolationRepository>();
+builder.Services.AddScoped<DashboardStatisticService>();
 
 var modelPath = Path.GetFullPath(Path.Combine(builder.Environment.ContentRootPath, "..", "..", "..", "AITooling", "yolo_model", "best.onnx"));
 if (!File.Exists(modelPath)) throw new FileNotFoundException($"Model file not found at: {modelPath}");

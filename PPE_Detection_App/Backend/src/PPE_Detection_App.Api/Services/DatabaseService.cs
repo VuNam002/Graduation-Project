@@ -14,6 +14,7 @@ namespace PPE_Detection_App.Api.Services
                 ?? throw new Exception("Thiếu ConnectionString trong appsettings.json");
         }
 
+
         public async Task InsertViolationLogAsync(ViolationLog log)
         {
             using var connection = new SqlConnection(_connectionString);
@@ -25,6 +26,9 @@ namespace PPE_Detection_App.Api.Services
             await connection.ExecuteAsync(sql, log);
         }
 
+        /// <summary>
+        /// Lấy danh sách violations với filter và phân trang
+        /// </summary>
         public async Task<(IEnumerable<ViolationLog> Data, int TotalCount)> GetViolationsAsync(
             DateTime? fromDate = null,
             DateTime? toDate = null,
@@ -35,6 +39,7 @@ namespace PPE_Detection_App.Api.Services
         {
             using var connection = new SqlConnection(_connectionString);
 
+            // Build WHERE clause động
             var conditions = new List<string> { "vl.Is_Deleted = 0" };
             var parameters = new DynamicParameters();
 
@@ -47,7 +52,7 @@ namespace PPE_Detection_App.Api.Services
             if (toDate.HasValue)
             {
                 conditions.Add("vl.Detected_Time <= @ToDate");
-                parameters.Add("ToDate", toDate.Value.AddDays(1).AddSeconds(-1));
+                parameters.Add("ToDate", toDate.Value.AddDays(1).AddSeconds(-1)); // End of day
             }
 
             if (!string.IsNullOrEmpty(categoryId))
@@ -64,9 +69,11 @@ namespace PPE_Detection_App.Api.Services
 
             string whereClause = string.Join(" AND ", conditions);
 
+            // Count total records
             string countSql = $"SELECT COUNT(*) FROM Violation_Log vl WHERE {whereClause}";
             int totalCount = await connection.ExecuteScalarAsync<int>(countSql, parameters);
 
+            // Get paginated data với JOIN để lấy Display_Name
             parameters.Add("Offset", (page - 1) * pageSize);
             parameters.Add("PageSize", pageSize);
 
@@ -114,6 +121,9 @@ namespace PPE_Detection_App.Api.Services
             return await connection.QueryFirstOrDefaultAsync<ViolationLog>(sql, new { Id = id });
         }
 
+        /// <summary>
+        /// Cập nhật trạng thái violation (0: Mới, 1: Đã xem, 2: Báo động giả)
+        /// </summary>
         public async Task<bool> UpdateViolationStatusAsync(long id, byte status)
         {
             using var connection = new SqlConnection(_connectionString);
@@ -126,6 +136,7 @@ namespace PPE_Detection_App.Api.Services
             return rowsAffected > 0;
         }
 
+ 
         public async Task<bool> DeleteViolationAsync(long id)
         {
             using var connection = new SqlConnection(_connectionString);
@@ -137,6 +148,7 @@ namespace PPE_Detection_App.Api.Services
             int rowsAffected = await connection.ExecuteAsync(sql, new { Id = id });
             return rowsAffected > 0;
         }
+
 
         public async Task<IEnumerable<ViolationStatsByDate>> GetViolationStatsByDateAsync(
             DateTime startDate,
@@ -303,6 +315,9 @@ namespace PPE_Detection_App.Api.Services
             });
         }
 
+        /// <summary>
+        /// Lấy xu hướng vi phạm (so sánh với kỳ trước)
+        /// </summary>
         public async Task<ViolationTrend> GetViolationTrendAsync(
             DateTime currentStartDate,
             DateTime currentEndDate)
@@ -356,51 +371,5 @@ namespace PPE_Detection_App.Api.Services
             string sql = "SELECT * FROM Violation_Category WHERE Is_Deleted = 0 ORDER BY Severity_Level DESC";
             return await connection.QueryAsync<ViolationCategory>(sql);
         }
-    }
-
-    // ==================== DTO MODELS ====================
-
-    public class ViolationStatsByDate
-    {
-        public DateTime Date { get; set; }
-        public int TotalCount { get; set; }
-        public int NewCount { get; set; }
-        public int ViewedCount { get; set; }
-        public int FalseAlertCount { get; set; }
-    }
-
-    public class ViolationStatsByCategory
-    {
-        public string Category_Id { get; set; } = string.Empty;
-        public string Display_Name { get; set; } = string.Empty;
-        public int Severity_Level { get; set; }
-        public string? Color_Code { get; set; }
-        public int Count { get; set; }
-        public double AvgConfidence { get; set; }
-        public decimal Percentage { get; set; }
-    }
-
-    public class ViolationStatsByHour
-    {
-        public int Hour { get; set; }
-        public int Count { get; set; }
-    }
-
-    public class DashboardSummary
-    {
-        public int TotalViolations { get; set; }
-        public int NewViolations { get; set; }
-        public int ViewedViolations { get; set; }
-        public int FalseAlerts { get; set; }
-        public double AvgConfidence { get; set; }
-        public string? TopCategory { get; set; }
-    }
-
-    public class ViolationTrend
-    {
-        public int CurrentPeriodCount { get; set; }
-        public int PreviousPeriodCount { get; set; }
-        public decimal ChangePercentage { get; set; }
-        public bool IsIncreasing { get; set; }
     }
 }

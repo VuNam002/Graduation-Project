@@ -8,12 +8,19 @@ namespace PPE_Detection_App.Api.Controllers
     [Route("api/[controller]")]
     public class ViolationController : ControllerBase
     {
-        private readonly DatabaseService _dbService;
+        // Khai báo 2 Repository/Service mới
+        private readonly ViolationRepository _violationRepo;
+        private readonly DashboardStatisticService _dashboardService;
         private readonly ILogger<ViolationController> _logger;
 
-        public ViolationController(DatabaseService dbService, ILogger<ViolationController> logger)
+        // Inject 2 service vào constructor
+        public ViolationController(
+            ViolationRepository violationRepo,
+            DashboardStatisticService dashboardService,
+            ILogger<ViolationController> logger)
         {
-            _dbService = dbService;
+            _violationRepo = violationRepo;
+            _dashboardService = dashboardService;
             _logger = logger;
         }
 
@@ -31,7 +38,8 @@ namespace PPE_Detection_App.Api.Controllers
                 if (page < 1) page = 1;
                 if (pageSize < 1 || pageSize > 100) pageSize = 20;
 
-                var (data, totalCount) = await _dbService.GetViolationsAsync(
+                // Sử dụng _violationRepo
+                var (data, totalCount) = await _violationRepo.GetViolationsAsync(
                     fromDate, toDate, categoryId, status, page, pageSize);
 
                 return Ok(new
@@ -84,7 +92,8 @@ namespace PPE_Detection_App.Api.Controllers
         {
             try
             {
-                var violation = await _dbService.GetViolationByIdAsync(id);
+                // Sử dụng _violationRepo
+                var violation = await _violationRepo.GetViolationByIdAsync(id);
 
                 if (violation == null)
                 {
@@ -139,7 +148,8 @@ namespace PPE_Detection_App.Api.Controllers
                     return BadRequest(new { success = false, error = "Trạng thái không hợp lệ. Cho phép: 0 (Mới), 1 (Đã xem), 2 (Báo động giả)" });
                 }
 
-                var result = await _dbService.UpdateViolationStatusAsync(id, request.Status);
+                // Sử dụng _violationRepo
+                var result = await _violationRepo.UpdateViolationStatusAsync(id, request.Status);
 
                 if (!result)
                 {
@@ -176,7 +186,8 @@ namespace PPE_Detection_App.Api.Controllers
         {
             try
             {
-                var result = await _dbService.DeleteViolationAsync(id);
+                // Sử dụng _violationRepo
+                var result = await _violationRepo.DeleteViolationAsync(id);
 
                 if (!result)
                 {
@@ -207,7 +218,8 @@ namespace PPE_Detection_App.Api.Controllers
                 var end = endDate ?? DateTime.Today;
                 var start = startDate ?? end.AddDays(-6);
 
-                var stats = await _dbService.GetViolationStatsByDateAsync(start, end);
+                // Sử dụng _dashboardService
+                var stats = await _dashboardService.GetViolationStatsByDateAsync(start, end);
 
                 return Ok(new
                 {
@@ -230,7 +242,6 @@ namespace PPE_Detection_App.Api.Controllers
             }
         }
 
-        /// Thống kê vi phạm theo loại (cho biểu đồ pie chart)
         [HttpGet("statistics/by-category")]
         public async Task<IActionResult> GetStatisticsByCategory(
             [FromQuery] DateTime? startDate = null,
@@ -238,7 +249,8 @@ namespace PPE_Detection_App.Api.Controllers
         {
             try
             {
-                var stats = await _dbService.GetViolationStatsByCategoryAsync(startDate, endDate);
+                // Sử dụng _dashboardService
+                var stats = await _dashboardService.GetViolationStatsByCategoryAsync(startDate, endDate);
 
                 return Ok(new
                 {
@@ -262,7 +274,6 @@ namespace PPE_Detection_App.Api.Controllers
             }
         }
 
-        /// Top N vi phạm nhiều nhất
         [HttpGet("statistics/top-violations")]
         public async Task<IActionResult> GetTopViolations(
             [FromQuery] int top = 5,
@@ -273,7 +284,8 @@ namespace PPE_Detection_App.Api.Controllers
             {
                 if (top < 1 || top > 20) top = 5;
 
-                var stats = await _dbService.GetTopViolationsAsync(top, startDate, endDate);
+                // Sử dụng _dashboardService
+                var stats = await _dashboardService.GetTopViolationsAsync(top, startDate, endDate);
 
                 return Ok(new
                 {
@@ -296,7 +308,6 @@ namespace PPE_Detection_App.Api.Controllers
             }
         }
 
-        /// Thống kê vi phạm theo giờ (Peak hours - Heatmap)
         [HttpGet("statistics/peak-hours")]
         public async Task<IActionResult> GetPeakHours(
             [FromQuery] DateTime? startDate = null,
@@ -304,11 +315,11 @@ namespace PPE_Detection_App.Api.Controllers
         {
             try
             {
-                // Mặc định: 7 ngày gần nhất
                 var end = endDate ?? DateTime.Today;
                 var start = startDate ?? end.AddDays(-6);
 
-                var stats = await _dbService.GetViolationStatsByHourAsync(start, end);
+                // Sử dụng _dashboardService
+                var stats = await _dashboardService.GetViolationStatsByHourAsync(start, end);
 
                 return Ok(new
                 {
@@ -329,7 +340,6 @@ namespace PPE_Detection_App.Api.Controllers
             }
         }
 
-        /// Xu hướng vi phạm (so sánh với kỳ trước)
         [HttpGet("statistics/trend")]
         public async Task<IActionResult> GetViolationTrend(
             [FromQuery] DateTime? startDate = null,
@@ -337,11 +347,11 @@ namespace PPE_Detection_App.Api.Controllers
         {
             try
             {
-                // Mặc định: 7 ngày gần nhất
                 var end = endDate ?? DateTime.Today;
                 var start = startDate ?? end.AddDays(-6);
 
-                var trend = await _dbService.GetViolationTrendAsync(start, end);
+                // Sử dụng _dashboardService
+                var trend = await _dashboardService.GetViolationTrendAsync(start, end);
 
                 return Ok(new
                 {
@@ -368,19 +378,21 @@ namespace PPE_Detection_App.Api.Controllers
             }
         }
 
-        /// Tổng quan hôm nay (Dashboard summary)
         [HttpGet("statistics/today-summary")]
         public async Task<IActionResult> GetTodaySummary()
         {
             try
             {
                 var today = DateTime.Today;
-                var summary = await _dbService.GetDashboardSummaryAsync(today);
+
+                // Sử dụng _dashboardService
+                var summary = await _dashboardService.GetDashboardSummaryAsync(today);
 
                 string? topCategoryName = null;
                 if (!string.IsNullOrEmpty(summary.TopCategory))
                 {
-                    var categories = await _dbService.GetAllCategoriesAsync();
+                    // Sử dụng _violationRepo
+                    var categories = await _violationRepo.GetAllCategoriesAsync();
                     topCategoryName = categories.FirstOrDefault(c => c.Id == summary.TopCategory)?.Display_Name;
                 }
 
