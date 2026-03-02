@@ -8,7 +8,6 @@ using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
 
-
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
@@ -47,9 +46,13 @@ builder.Services.AddSwaggerGen(c =>
 
 builder.Services.AddCors(options =>
 {
-    options.AddPolicy("AllowAll", policy => { policy.AllowAnyOrigin().AllowAnyMethod().AllowAnyHeader(); });
+    options.AddPolicy("AllowAll", policy =>
+    {
+        policy.AllowAnyOrigin()
+              .AllowAnyMethod()
+              .AllowAnyHeader();
+    });
 });
-
 
 // Cấu hình JWT Authentication
 var jwtSettings = builder.Configuration.GetSection("Jwt");
@@ -76,12 +79,12 @@ builder.Services.AddAuthentication(options =>
 
 builder.Services.AddAuthorization();
 
-
 //Đăng ký Services
 builder.Services.AddSingleton<DatabaseService>();
 builder.Services.AddScoped<AuthService>();
 builder.Services.AddScoped<ViolationRepository>();
 builder.Services.AddScoped<DashboardStatisticService>();
+builder.Services.AddSingleton<WebSocketManagerService>();
 builder.Services.AddSingleton<CameraStreamService>();
 
 var modelPath = Path.GetFullPath(Path.Combine(builder.Environment.ContentRootPath, "..", "..", "..", "AITooling", "yolo_model", "best.onnx"));
@@ -99,12 +102,47 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
-app.UseStaticFiles(); 
+app.UseStaticFiles();
 app.UseCors("AllowAll");
 
 app.UseAuthentication();
 app.UseAuthorization();
 
-app.MapControllers(); 
+// Cấu hình WebSocket với options
+var webSocketOptions = new WebSocketOptions
+{
+    KeepAliveInterval = TimeSpan.FromMinutes(2),
+    ReceiveBufferSize = 4 * 1024
+};
+app.UseWebSockets(webSocketOptions);
+
+// WebSocket endpoint cho camera streaming
+app.Map("/ws", async context =>
+{
+    if (context.WebSockets.IsWebSocketRequest)
+    {
+        try
+        {
+            using var webSocket = await context.WebSockets.AcceptWebSocketAsync();
+            var socketManager = context.RequestServices.GetRequiredService<WebSocketManagerService>();
+
+            // Add socket và xử lý connection
+            await socketManager.HandleWebSocketAsync(webSocket);
+        }
+        catch (Exception ex)
+        {
+            var logger = context.RequestServices.GetRequiredService<ILogger<Program>>();
+            logger.LogError(ex, "WebSocket error occurred");
+            context.Response.StatusCode = 500;
+        }
+    }
+    else
+    {
+        context.Response.StatusCode = 400;
+        await context.Response.WriteAsync("WebSocket connection required");
+    }
+});
+
+app.MapControllers();
 
 app.Run();

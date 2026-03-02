@@ -1,13 +1,13 @@
 using OpenCvSharp;
-using OpenCvSharp.Extensions;
 using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.PixelFormats;
 using System.Collections.Concurrent;
-using System.Drawing.Imaging;
 using PPE_Detection_App.Api.Models;
 using SixLabors.ImageSharp.Processing;
 using SixLabors.ImageSharp.Drawing.Processing;
 using SixLabors.Fonts;
+using SixLabors.ImageSharp.Formats.Jpeg;
+using System.Runtime.InteropServices;
 
 namespace PPE_Detection_App.Api.Services
 {
@@ -15,24 +15,26 @@ namespace PPE_Detection_App.Api.Services
     {
         private readonly IServiceProvider _serviceProvider;
         private readonly ILogger<CameraStreamService> _logger;
+        private readonly WebSocketManagerService _webSocketManager;
         private readonly ConcurrentDictionary<int, CancellationTokenSource> _activeCameras = new();
         private readonly List<string> _violationLabels = new List<string> { "NO-Gloves", "NO-Goggles", "NO-Hardhat", "NO-Mask", "NO-Safety Vest" };
         private readonly string _outputDirectory;
-        
+
         private readonly ConcurrentDictionary<string, DateTime> _lastDetectionTimestamps = new();
         private const int ViolationCooldownSeconds = 10;
 
-        public CameraStreamService(IServiceProvider serviceProvider, ILogger<CameraStreamService> logger, IWebHostEnvironment env)
+        public CameraStreamService(IServiceProvider serviceProvider, ILogger<CameraStreamService> logger, IWebHostEnvironment env, WebSocketManagerService webSocketManager)
         {
             _serviceProvider = serviceProvider;
             _logger = logger;
+            _webSocketManager = webSocketManager;
             _outputDirectory = Path.Combine(env.WebRootPath, "violations");
             if (!Directory.Exists(_outputDirectory))
-            {
                 Directory.CreateDirectory(_outputDirectory);
-            }
         }
+
         public bool IsProcessing(int cameraId) => _activeCameras.ContainsKey(cameraId);
+
         public void StartProcessing(int cameraId)
         {
             if (IsProcessing(cameraId))
@@ -40,8 +42,8 @@ namespace PPE_Detection_App.Api.Services
                 _logger.LogWarning($"Processing for camera {cameraId} is already running.");
                 return;
             }
-            
-            _lastDetectionTimestamps.Clear(); 
+
+            _lastDetectionTimestamps.Clear();
 
             var cts = new CancellationTokenSource();
             if (_activeCameras.TryAdd(cameraId, cts))
@@ -50,6 +52,7 @@ namespace PPE_Detection_App.Api.Services
                 _logger.LogInformation($"Started processing for camera {cameraId}.");
             }
         }
+
         public void StopProcessing(int cameraId)
         {
             if (_activeCameras.TryRemove(cameraId, out var cts))
@@ -72,7 +75,9 @@ namespace PPE_Detection_App.Api.Services
 
             capture.FrameWidth = 1280;
             capture.FrameHeight = 720;
-            var frame = new Mat();
+
+            using var frame = new Mat();
+            using var rgbaFrame = new Mat();
 
             while (!cancellationToken.IsCancellationRequested)
             {
@@ -82,58 +87,107 @@ namespace PPE_Detection_App.Api.Services
                     continue;
                 }
 
+                Image<Rgba32>? imageForProcessing = null;
                 try
                 {
-                    using var bitmap = BitmapConverter.ToBitmap(frame);
-                    using var image = ConvertToImageSharp(bitmap);
+                    // ✅ Convert BGR → RGBA trực tiếp, không qua Bitmap
+                    Cv2.CvtColor(frame, rgbaFrame, ColorConversionCodes.BGR2RGBA);
+                    imageForProcessing = ConvertMatToImageSharp(rgbaFrame);
 
                     using var scope = _serviceProvider.CreateScope();
                     var yoloProcessor = scope.ServiceProvider.GetRequiredService<YoloV8Processor>();
                     var violationRepo = scope.ServiceProvider.GetRequiredService<ViolationRepository>();
 
-                    var detections = yoloProcessor.ProcessImage(image);
-
+                    var detections = yoloProcessor.ProcessImage(imageForProcessing);
                     var allViolationDetections = detections.Where(d => _violationLabels.Contains(d.Label)).ToList();
-                    
+
                     var eligibleDetections = new List<DetectionResult>();
                     if (allViolationDetections.Any())
                     {
                         var now = DateTime.UtcNow;
                         foreach (var detection in allViolationDetections)
                         {
-                            if (!_lastDetectionTimestamps.TryGetValue(detection.Label, out var lastTime) || 
+                            if (!_lastDetectionTimestamps.TryGetValue(detection.Label, out var lastTime) ||
                                 (now - lastTime).TotalSeconds > ViolationCooldownSeconds)
                             {
                                 eligibleDetections.Add(detection);
                                 _lastDetectionTimestamps[detection.Label] = now;
                             }
                         }
+
+                        foreach (var detection in allViolationDetections)
+                        {
+                            DrawBoundingBox(imageForProcessing, detection, isOnCooldown: !eligibleDetections.Contains(detection));
+                        }
                     }
 
                     if (eligibleDetections.Any())
                     {
-                        foreach (var detection in allViolationDetections)
-                        {
-                            DrawBoundingBox(image, detection, isOnCooldown: !eligibleDetections.Contains(detection));
-                        }
-                        await HandleViolations(eligibleDetections, image, violationRepo);
+                        await HandleViolations(eligibleDetections, imageForProcessing, violationRepo);
+                    }
+
+                    if (_webSocketManager.GetConnectionCount() > 0)
+                    {
+                        var dataUri = ConvertImageToDataUri(imageForProcessing);
+                        await _webSocketManager.BroadcastMessage(dataUri);
                     }
                 }
                 catch (Exception ex)
                 {
                     _logger.LogError(ex, $"Error processing frame from camera {cameraId}.");
                 }
+                finally
+                {
+                    imageForProcessing?.Dispose();
+                }
 
-                await Task.Delay(200, cancellationToken);
+                await Task.Delay(100, cancellationToken);
             }
         }
 
-        private static Image<Rgba32> ConvertToImageSharp(System.Drawing.Bitmap bitmap)
+        /// <summary>
+        /// Convert Mat (RGBA) sang ImageSharp Image Rgba32 - không dùng unsafe, không qua Bitmap
+        /// </summary>
+        private static Image<Rgba32> ConvertMatToImageSharp(Mat rgbaMat)
+        {
+            int width = rgbaMat.Width;
+            int height = rgbaMat.Height;
+            int stride = (int)rgbaMat.Step();
+            int totalBytes = stride * height;
+
+            var rawBytes = new byte[totalBytes];
+            Marshal.Copy(rgbaMat.Data, rawBytes, 0, totalBytes);
+
+            var image = new Image<Rgba32>(width, height);
+
+            image.ProcessPixelRows(accessor =>
+            {
+                for (int y = 0; y < height; y++)
+                {
+                    var rowSpan = accessor.GetRowSpan(y);
+                    int rowOffset = y * stride;
+                    for (int x = 0; x < width; x++)
+                    {
+                        int offset = rowOffset + x * 4;
+                        rowSpan[x] = new Rgba32(
+                            r: rawBytes[offset],
+                            g: rawBytes[offset + 1],
+                            b: rawBytes[offset + 2],
+                            a: rawBytes[offset + 3]
+                        );
+                    }
+                }
+            });
+
+            return image;
+        }
+
+        private static string ConvertImageToDataUri(Image image)
         {
             using var ms = new MemoryStream();
-            bitmap.Save(ms, ImageFormat.Png);
-            ms.Seek(0, SeekOrigin.Begin);
-            return SixLabors.ImageSharp.Image.Load<Rgba32>(ms);
+            image.Save(ms, new JpegEncoder { Quality = 75 });
+            var base64String = Convert.ToBase64String(ms.ToArray());
+            return $"data:image/jpeg;base64,{base64String}";
         }
 
         private void DrawBoundingBox(Image image, DetectionResult detection, bool isOnCooldown = false)
@@ -142,32 +196,29 @@ namespace PPE_Detection_App.Api.Services
             var label = $"{detection.Label} ({detection.Confidence:P0})";
 
             Font font;
-            if (SystemFonts.TryGet("Arial", out var fontFamily))
+            try
             {
-                font = new Font(fontFamily, 16);
+                font = SystemFonts.CreateFont("Arial", 16, FontStyle.Bold);
             }
-            else
+            catch
             {
-                var firstFamily = SystemFonts.Families.FirstOrDefault();
-                font = firstFamily != null ? new Font(firstFamily, 16) : SystemFonts.CreateFont("Arial", 16);
+                font = SystemFonts.Families.Any()
+                    ? new Font(SystemFonts.Families.First(), 16)
+                    : throw new Exception("No fonts found on the system.");
             }
 
             var color = isOnCooldown ? Color.Yellow : Color.Red;
-            var thickness = 2f;
-
             var rect = new RectangleF((float)box.Left, (float)box.Top, (float)box.Width, (float)box.Height);
 
             image.Mutate(x =>
             {
-                x.Draw(color, thickness, rect);
+                x.Draw(color, 2f, rect);
 
                 var textSize = TextMeasurer.MeasureSize(label, new TextOptions(font));
                 var textLocation = new PointF(rect.Left, rect.Top - textSize.Height - 5);
 
                 if (textLocation.Y < 0)
-                {
                     textLocation.Y = rect.Top + 5;
-                }
 
                 var textBackground = new RectangleF(textLocation.X, textLocation.Y, textSize.Width + 4, textSize.Height + 2);
                 x.Fill(Color.Black, textBackground);
@@ -192,7 +243,7 @@ namespace PPE_Detection_App.Api.Services
                 var log = new ViolationLog
                 {
                     Category_Id = detection.Label,
-                    Image_Path = relativePath, 
+                    Image_Path = relativePath,
                     Confidence_Score = detection.Confidence,
                     Box_X = detection.Box.Left,
                     Box_Y = detection.Box.Top,
@@ -209,11 +260,8 @@ namespace PPE_Detection_App.Api.Services
 
         public void Dispose()
         {
-            var keys = _activeCameras.Keys.ToList();
-            foreach (var key in keys)
-            {
+            foreach (var key in _activeCameras.Keys.ToList())
                 StopProcessing(key);
-            }
         }
     }
 }
