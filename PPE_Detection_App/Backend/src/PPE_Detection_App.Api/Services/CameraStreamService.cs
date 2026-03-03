@@ -145,9 +145,6 @@ namespace PPE_Detection_App.Api.Services
             }
         }
 
-        /// <summary>
-        /// Convert Mat (RGBA) sang ImageSharp Image Rgba32 - không dùng unsafe, không qua Bitmap
-        /// </summary>
         private static Image<Rgba32> ConvertMatToImageSharp(Mat rgbaMat)
         {
             int width = rgbaMat.Width;
