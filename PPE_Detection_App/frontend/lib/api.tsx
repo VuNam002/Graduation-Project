@@ -1,4 +1,4 @@
-import { LoginResponse, AccountDetail, DashboardResponse, RecentViolationsResponse } from './types';
+import { LoginResponse, AccountDetail, DashboardResponse, RecentViolationsResponse, DashboardMonthlyResponse } from './types';
 
 const API_URL = 'https://localhost:7215/api';
 
@@ -147,6 +147,32 @@ export async function fetchDashboardOverview(
   const url = `${API_URL}/Dashboard/overview${queryString ? `?${queryString}` : ''}`;
 
   return api<DashboardResponse>(url, {
+    method: 'GET',
+    headers: getAuthHeaders(),
+  });
+}
+
+export interface DashboardMonthlyParams {
+  year?: number;
+  month?: number;
+}
+
+export async function fetchDashboardMonthly(
+  params?: DashboardMonthlyParams
+): Promise<DashboardMonthlyResponse> {
+  const query = new URLSearchParams();
+
+  if (params?.year !== undefined) {
+    query.append('year', String(params.year));
+  }
+  if (params?.month !== undefined) {
+    query.append('month', String(params.month));
+  }
+
+  const queryString = query.toString();
+  const url = `${API_URL}/Dashboard/monthly${queryString ? `?${queryString}` : ''}`;
+
+  return api<DashboardMonthlyResponse>(url, {
     method: 'GET',
     headers: getAuthHeaders(),
   });

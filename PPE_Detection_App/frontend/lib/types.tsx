@@ -150,6 +150,46 @@ export interface RecentViolationsResponse {
   recentViolations: RecentViolation[];
 }
 
+export interface MonthlyPeriod {
+  year: number;
+  month: number;
+  monthName: string;
+  startDate: string;
+  endDate: string;
+}
+
+export interface MonthlySummary {
+  totalViolations: number;
+  avgPerDay: number;
+  peakDay: string;
+  peakDayCount: number;
+}
+
+export interface DailyStat {
+  date: string;
+  dayOfWeek: string;
+  total: number;
+  new_count: number;
+  viewed: number;
+  falseAlert: number;
+}
+
+export interface CategoryStat {
+  categoryId: string;
+  displayName: string;
+  count: number;
+  percentage: number;
+  avgConfidence: number;
+}
+
+export interface DashboardMonthlyResponse {
+  success: boolean;
+  period: MonthlyPeriod;
+  summary: MonthlySummary;
+  dailyStats: DailyStat[];
+  categoryStats: CategoryStat[];
+}
+
 export function isLoginSuccess(response: LoginResponse): response is LoginResponse & { token: string; user: AccountDetail } {
   return !!response.token && !!response.user;
 }

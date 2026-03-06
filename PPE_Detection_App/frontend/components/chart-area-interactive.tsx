@@ -2,10 +2,8 @@
 
 import * as React from "react"
 import { Area, AreaChart, CartesianGrid, XAxis } from "recharts"
-import { fetchDashboardOverview } from "@/lib/api"
-import { type DashboardResponse } from "@/lib/types"
+import { fetchDashboardMonthly } from "@/lib/api"
 
-import { useIsMobile } from "@/hooks/use-mobile"
 import {
   Card,
   CardAction,
@@ -27,76 +25,77 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import {
-  ToggleGroup,
-  ToggleGroupItem,
-} from "@/components/ui/toggle-group"
 import { Skeleton } from "./ui/skeleton"
 
 export function ChartAreaInteractive() {
-  const isMobile = useIsMobile()
-  const [timeRange, setTimeRange] = React.useState("30d")
+  const [selectedMonth, setSelectedMonth] = React.useState<string>(String(new Date().getMonth() + 1))
+  const [selectedYear, setSelectedYear] = React.useState<string>(String(new Date().getFullYear()))
   const [chartData, setChartData] = React.useState<any[] | null>(null)
   const [chartConfig, setChartConfig] = React.useState<ChartConfig | null>(null)
   const [loading, setLoading] = React.useState(true)
   const [error, setError] = React.useState<string | null>(null)
-  const [periodDescription, setPeriodDescription] = React.useState("Last 30 days");
+  const [periodDescription, setPeriodDescription] = React.useState("Đang tải...");
 
-  React.useEffect(() => {
-    if (isMobile) {
-      setTimeRange("7d")
-    }
-  }, [isMobile])
+  // Tạo danh sách năm cố định để không phải tính toán lại mỗi lần render
+  const years = React.useMemo(() => {
+    const currentYear = new Date().getFullYear();
+    return Array.from({ length: 21 }, (_, i) => currentYear - 10 + i);
+  }, []);
 
   React.useEffect(() => {
     const fetchData = async () => {
       setLoading(true)
       setError(null)
       try {
-        const days = parseInt(timeRange.replace("d", ""), 10)
-        if (isNaN(days)) {
-          throw new Error("Invalid time range specified.");
-        }
-        
-        const response = await fetchDashboardOverview({
-          daysRange: days,
+        const response = await fetchDashboardMonthly({
+          month: parseInt(selectedMonth),
+          year: parseInt(selectedYear)
         })
 
         if (response && response.success) {
-          const { violationsTrend, period } = response;
-          if (!violationsTrend || !period) {
-            throw new Error("Invalid data structure in API response.");
+          const { dailyStats, period } = response;
+          if (!dailyStats || !period) {
+            throw new Error("Cấu trúc dữ liệu API không hợp lệ.");
           }
-          const newChartData = violationsTrend.labels.map((label, index) => {
-            const dataPoint: { [key: string]: any } = { date: label };
-            violationsTrend.datasets.forEach(dataset => {
-              const key = dataset.label.replace(/[^a-zA-Z0-9]/g, '');
-              dataPoint[key] = dataset.data[index];
-            });
-            return dataPoint;
-          });
-          setChartData(newChartData);
           
-          const chartColors = ["--chart-1", "--chart-2", "--chart-3", "--chart-4", "--chart-5"];
-          const newChartConfig: ChartConfig = violationsTrend.datasets.reduce((config, dataset, index) => {
-            const key = dataset.label.replace(/[^a-zA-Z0-9]/g, '');
-            config[key] = {
-              label: dataset.label.charAt(0).toUpperCase() + dataset.label.slice(1),
-              color: `hsl(var(${chartColors[index % chartColors.length]}))`,
-            };
-            return config;
-          }, {} as ChartConfig);
+          const year = parseInt(selectedYear);
+          const month = parseInt(selectedMonth);
+          const daysInMonth = new Date(year, month, 0).getDate();
+          const completeData = [];
+
+          for (let day = 1; day <= daysInMonth; day++) {
+            const dateStr = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+            const existingStat = dailyStats.find((stat) => stat.date === dateStr);
+            
+            if (existingStat) {
+              completeData.push(existingStat);
+            } else {
+              completeData.push({
+                date: dateStr,
+                total: 0,
+              });
+            }
+          }
+          
+          setChartData(completeData);
+          
+          const newChartConfig: ChartConfig = {
+            total: {
+              label: "Tổng số vi phạm",
+              color: "hsl(var(--chart-1))",
+            },
+          };
           setChartConfig(newChartConfig);
 
-          setPeriodDescription(`Last ${period.days} days`);
+          setPeriodDescription(`Tháng ${period.month} năm ${period.year}`);
         } else {
-           throw new Error( (response as any).error || "Failed to fetch dashboard overview");
+           throw new Error( "Không thể lấy dữ liệu báo cáo tháng");
         }
       } catch (err) {
         if (err instanceof Error && err.message.includes('validation errors')) {
-            setError(`Validation Error: ${err.message}`);
+            setError(`Lỗi xác thực: ${err.message}`);
         } else {
-            setError(err instanceof Error ? err.message : "An unknown error occurred");
+            setError(err instanceof Error ? err.message : "Đã xảy ra lỗi không xác định");
         }
       } finally {
         setLoading(false)
@@ -104,53 +103,38 @@ export function ChartAreaInteractive() {
     }
 
     fetchData()
-  }, [timeRange])
+  }, [selectedMonth, selectedYear])
 
   return (
     <Card className="@container/card">
       <CardHeader>
-        <CardTitle>Violations Trend</CardTitle>
+        <CardTitle>Xu hướng vi phạm</CardTitle>
         <CardDescription>
-          <span className="hidden @[540px]/card:block">
-            Total violations for the {periodDescription.toLowerCase()}
-          </span>
-          <span className="@[540px]/card:hidden">{periodDescription}</span>
+          {periodDescription}
         </CardDescription>
-        <CardAction>
-          <ToggleGroup
-            type="single"
-            value={timeRange}
-            onValueChange={setTimeRange}
-            variant="outline"
-            className="hidden *:data-[slot=toggle-group-item]:px-4! @[767px]/card:flex"
-            disabled={loading}
-          >
-            <ToggleGroupItem value="30d">30 days</ToggleGroupItem>
-            <ToggleGroupItem value="7d">7 days</ToggleGroupItem>
-            <ToggleGroupItem value="3d">3 days</ToggleGroupItem>
-            <ToggleGroupItem value="1d">1 day</ToggleGroupItem>
-          </ToggleGroup>
-          <Select value={timeRange} onValueChange={setTimeRange} disabled={loading}>
-            <SelectTrigger
-              className="flex w-40 **:data-[slot=select-value]:block **:data-[slot=select-value]:truncate @[767px]/card:hidden"
-              size="sm"
-              aria-label="Select a value"
-            >
-              <SelectValue placeholder="30 days" />
+        <CardAction className="flex gap-2">
+          <Select value={selectedMonth} onValueChange={setSelectedMonth} disabled={loading}>
+            <SelectTrigger className="w-[130px]">
+              <SelectValue placeholder="Tháng" />
             </SelectTrigger>
-            <SelectContent className="rounded-xl">
-              <SelectItem value="30d" className="rounded-lg">
-                30 days
-              </SelectItem>
-              <SelectItem value="7d" className="rounded-lg">
-                7 days
-              </SelectItem>
-              <SelectItem value="3d" className="rounded-lg">
-                3 days
-              </SelectItem>
-              <SelectItem value="1d" className="rounded-lg">
-                1 day
-              </SelectItem>
+            <SelectContent>
+              {Array.from({ length: 12 }, (_, i) => i + 1).map((m) => (
+                <SelectItem key={m} value={String(m)}>
+                  Tháng {m}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Select value={selectedYear} onValueChange={setSelectedYear} disabled={loading}>
+            <SelectTrigger className="w-[100px]">
+              <SelectValue placeholder="Năm" />
+            </SelectTrigger>
+            <SelectContent className="max-h-[200px]">
+              {years.map((y) => (
+                <SelectItem key={y} value={String(y)}>
+                  {y}
+                </SelectItem>
+              ))}
             </SelectContent>
           </Select>
         </CardAction>
@@ -194,10 +178,12 @@ export function ChartAreaInteractive() {
                 tickMargin={8}
                 minTickGap={32}
                 tickFormatter={(value) => {
-                  const date = new Date(value)
-                  return date.toLocaleDateString("en-US", {
-                    month: "short",
+                  // Parse thủ công để tránh lệch múi giờ
+                  const [y, m, d] = value.split('-').map(Number);
+                  const date = new Date(y, m - 1, d);
+                  return date.toLocaleDateString("vi-VN", {
                     day: "numeric",
+                    month: "numeric",
                   })
                 }}
               />
@@ -206,9 +192,12 @@ export function ChartAreaInteractive() {
                 content={
                   <ChartTooltipContent
                     labelFormatter={(value) => {
-                      return new Date(value).toLocaleDateString("en-US", {
-                        month: "short",
+                      const [y, m, d] = value.split('-').map(Number);
+                      const date = new Date(y, m - 1, d);
+                      return date.toLocaleDateString("vi-VN", {
+                        weekday: "short",
                         day: "numeric",
+                        month: "long",
                       })
                     }}
                     indicator="dot"
@@ -229,7 +218,7 @@ export function ChartAreaInteractive() {
           </ChartContainer>
         ) : (
           <div className="flex items-center justify-center aspect-auto h-[250px] w-full">
-            No data available.
+            Không có dữ liệu.
           </div>
         )}
       </CardContent>
