@@ -36,6 +36,120 @@ export enum UserRole {
   Guest = 'Guest',
 }
 
+export interface TopCategory {
+  id: string | null;
+  displayName: string | null;
+}
+
+export interface TodaySummary {
+  date: string | null;
+  totalViolations: string | null;
+  newViolations: number;
+  viewedViolations: number;
+  falseAlerts: number;
+  avgConfidence: number;
+  topCategory: TopCategory;
+}
+
+export interface ChartDataset {
+  label: string;
+  data: number[];
+  borderColor: string;
+  backgroundColor: string;
+}
+
+export interface PieChartDataset {
+  data: number[];
+  backgroundColor: string[];
+}
+
+export interface BarChartDataset {
+  label: string;
+  data: number[];
+  backgroundColor: string;
+}
+
+export interface ViolationsTrend {
+  labels: string[];
+  datasets: ChartDataset[];
+  rawData: unknown[];
+}
+
+export interface ViolationsByCategory {
+  labels: string[];
+  datasets: PieChartDataset[];
+  rawData: unknown[];
+}
+
+export interface TopViolation {
+  id?: string;
+  name?: string;
+  count?: number;
+  [key: string]: unknown;
+}
+
+export interface PeakHours {
+  labels: string[];
+  datasets: BarChartDataset[];
+  rawData: unknown[];
+}
+
+export interface TrendPeriod {
+  startDate: string;
+  endDate: string;
+  count: number;
+}
+
+export interface TrendChange {
+  percentage: number;
+  isIncreasing: boolean;
+  direction: 'stable' | 'increasing' | 'decreasing';
+  text: string;
+  color: string;
+}
+
+export interface Trend {
+  currentPeriod: TrendPeriod;
+  previousPeriod: TrendPeriod;
+  change: TrendChange;
+}
+
+export interface DashboardPeriod {
+  startDate: string;
+  endDate: string;
+  days: number;
+}
+
+export interface DashboardResponse {
+  success: boolean;
+  generatedAt: string;
+  period: DashboardPeriod;
+  todaySummary: TodaySummary;
+  violationsTrend: ViolationsTrend;
+  violationsByCategory: ViolationsByCategory;
+  topViolations: TopViolation[];
+  peakHours: PeakHours;
+  trend: Trend;
+}
+
+export interface RecentSummary {
+  totalToday: number;
+  newCount: number;
+  last30Minutes: number;
+}
+
+export interface RecentViolation {
+  id?: string;
+  [key: string]: unknown;
+}
+
+export interface RecentViolationsResponse {
+  success: boolean;
+  timestamp: string;
+  summary: RecentSummary;
+  recentViolations: RecentViolation[];
+}
+
 export function isLoginSuccess(response: LoginResponse): response is LoginResponse & { token: string; user: AccountDetail } {
   return !!response.token && !!response.user;
 }
