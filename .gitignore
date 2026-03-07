@@ -1,0 +1,13 @@
+﻿node_modules/
+.next/
+*.log
+.env.local
+.DS_Store
+**/node_modules/
+**/.next/
+.vs/
+**/.vs/
+bin/
+obj/
+**/bin/
+**/obj/
