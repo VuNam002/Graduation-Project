@@ -178,7 +178,6 @@ export function ChartAreaInteractive() {
                 tickMargin={8}
                 minTickGap={32}
                 tickFormatter={(value) => {
-                  // Parse thủ công để tránh lệch múi giờ
                   const [y, m, d] = value.split('-').map(Number);
                   const date = new Date(y, m - 1, d);
                   return date.toLocaleDateString("vi-VN", {

@@ -190,6 +190,28 @@ export interface DashboardMonthlyResponse {
   categoryStats: CategoryStat[];
 }
 
+export interface WidgetItem {
+  value: number;
+  label: string;
+  change?: number;
+  changePercent?: number;
+  trend?: string;
+  percentage?: number;
+  avgPerDay?: number;
+  icon: string;
+  color: string;
+}
+
+export interface DashboardWidgetsResponse {
+  success: boolean;
+  widgets: {
+    today: WidgetItem;
+    newViolations: WidgetItem;
+    thisWeek: WidgetItem;
+    thisMonth: WidgetItem;
+  };
+}
+
 export function isLoginSuccess(response: LoginResponse): response is LoginResponse & { token: string; user: AccountDetail } {
   return !!response.token && !!response.user;
 }

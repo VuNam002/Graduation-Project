@@ -1,4 +1,4 @@
-import { LoginResponse, AccountDetail, DashboardResponse, RecentViolationsResponse, DashboardMonthlyResponse } from './types';
+import { LoginResponse, AccountDetail, DashboardResponse, RecentViolationsResponse, DashboardMonthlyResponse, DashboardWidgetsResponse } from './types';
 
 const API_URL = 'https://localhost:7215/api';
 
@@ -147,6 +147,13 @@ export async function fetchDashboardOverview(
   const url = `${API_URL}/Dashboard/overview${queryString ? `?${queryString}` : ''}`;
 
   return api<DashboardResponse>(url, {
+    method: 'GET',
+    headers: getAuthHeaders(),
+  });
+}
+
+export async function fetchDashboardWidgets(): Promise<DashboardWidgetsResponse> {
+  return api<DashboardWidgetsResponse>(`${API_URL}/Dashboard/widgets`, {
     method: 'GET',
     headers: getAuthHeaders(),
   });

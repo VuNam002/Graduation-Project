@@ -1,14 +1,16 @@
-import { AppSidebar } from "@/components/app-sidebar"
-import { ChartAreaInteractive } from "@/components/chart-area-interactive"
-import { DataTable } from "@/components/data-table"
-import { SectionCards } from "@/components/section-cards"
-import { SiteHeader } from "@/components/site-header"
-import {
-  SidebarInset,
-  SidebarProvider,
-} from "@/components/ui/sidebar"
+import { AppSidebar } from "@/components/app-sidebar";
+import { ChartAreaInteractive } from "@/components/chart-area-interactive";
+import { ChartPieSimple } from "@/components/chart-pie-simple";
+import { ChartBarDefault } from "@/components/chart-bar-default";
+import { DataTable } from "@/components/data-table";
+import { SectionCards } from "@/components/section-cards";
+import { SiteHeader } from "@/components/site-header";
+import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
+import { ChartLineDots } from "@/components/chart-line-dots";
+import { WidgetsBarChart } from "@/components/barChart";
+import { NewViolationsRadial } from "@/components/radialChart";
 
-import data from "./data.json"
+import data from "./data.json";
 
 export default function Page() {
   return (
@@ -30,11 +32,20 @@ export default function Page() {
               <div className="px-4 lg:px-6">
                 <ChartAreaInteractive />
               </div>
+              <div className="px-4 lg:px-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                <ChartPieSimple />
+                <ChartBarDefault />
+                <ChartLineDots />
+              </div>
+              <div className="px-4 lg:px-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                <NewViolationsRadial />
+                <WidgetsBarChart />
+              </div>
               <DataTable data={data} />
             </div>
           </div>
         </div>
       </SidebarInset>
     </SidebarProvider>
-  )
+  );
 }
