@@ -4,7 +4,6 @@ import * as React from "react"
 import {
   IconCamera,
   IconChartBar,
-  IconDashboard,
   IconDatabase,
   IconFileAi,
   IconFileDescription,
@@ -16,8 +15,10 @@ import {
   IconReport,
   IconSearch,
   IconSettings,
+  IconCashPlus ,
   IconUsers,
 } from "@tabler/icons-react"
+import Link from "next/link"
 
 import { NavDocuments } from "@/components/nav-documents"
 import { NavMain } from "@/components/nav-main"
@@ -41,9 +42,20 @@ const data = {
   },
   navMain: [
     {
-      title: "Dashboard",
+      title: "Tài khoản",
       url: "#",
-      icon: IconDashboard,
+      icon: IconCashPlus,
+      isActive: false,
+      items: [
+        {
+          title: "Danh sách tài khoản",
+          url: "/account"
+        },
+        {
+          title: "Thêm tài khoản",
+          url: "/account/created"
+        }
+      ]
     },
     {
       title: "Lifecycle",
@@ -160,10 +172,10 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
               asChild
               className="data-[slot=sidebar-menu-button]:p-1.5!"
             >
-              <a href="#">
+              <Link href="/dashboard">
                 <IconInnerShadowTop className="size-5!" />
-                <span className="text-base font-semibold">Acme Inc.</span>
-              </a>
+                <span className="text-base font-semibold">Dashboard</span>
+              </Link>
             </SidebarMenuButton>
           </SidebarMenuItem>
         </SidebarMenu>

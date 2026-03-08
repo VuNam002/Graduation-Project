@@ -1,13 +1,11 @@
 "use client"
 
 import * as React from "react"
-import { TrendingUp, TrendingDown } from "lucide-react"
 import { Pie, PieChart } from "recharts"
 
 import {
   Card,
   CardContent,
-  CardDescription,
   CardFooter,
   CardHeader,
   CardTitle,

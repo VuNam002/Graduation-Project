@@ -104,16 +104,36 @@ namespace PPE_Detection_App.Api.Services
 
             return (true, "Tạo tài khoản thành công.");
         }
-        public async Task<List<AdminUserDto>> GetAllAsync()
+        public async Task<(bool Success, string Message)> DeleteAccountAsync(string username)
+        {
+            var user = await _databaseService.GetAdminUserByUsernameAsync(username);
+            if (user == null)
+            {
+                return (false, "Tài khoản không tồn tại.");
+            }
+            await _databaseService.DeleteAdminUserAsync(username);
+            return (true, "Xóa tài khoản thành công.");
+        }
+        public async Task<(bool Success, string Message)> UpdateStatusAccountAsync(string username, byte status)
+        {
+            var user = await _databaseService.GetAdminUserByUsernameAsync(username);
+            if (user == null)
+            {
+                return (false, "Tài khoản không tồn tại");
+            }
+            await _databaseService.UpdateStatusAdminUserAsync(username, status);
+            return (true, "Cập nhật trạng thái tài khoản thành công");
+        }
+        public async Task<IEnumerable<AdminUserResponse>> GetAllAsync()
         {
             var users = await _databaseService.GetAllAdminUsersAsync();
-            return users.Select(u => new AdminUserDto
+            return users.Select(u => new AdminUserResponse
             {
                 Username = u.Username,
-                Full_Name = u.Full_Name,
+                FullName = u.Full_Name,
                 Role = u.Role,
-                IsActive = !u.Is_Deleted
-            }).ToList();
+                Status = u.Status
+            });
         }
     }
 }

@@ -1,12 +1,10 @@
-import { LoginResponse, AccountDetail, DashboardResponse, RecentViolationsResponse, DashboardMonthlyResponse, DashboardWidgetsResponse } from './types';
+import { LoginResponse, AccountDetail, DashboardResponse, RecentViolationsResponse, DashboardMonthlyResponse, DashboardWidgetsResponse, Account} from './types';
 
 const API_URL = 'https://localhost:7215/api';
-
 // Generic API helper function
 async function api<T>(url: string, options: RequestInit = {}): Promise<T> {
-  try {
-    const headers: HeadersInit = { ...options.headers };
-
+  try {     
+    const headers: Record<string, string> = { ...options.headers };
     // Only add Content-Type for requests with a body
     if (options.body) {
       headers['Content-Type'] = 'application/json';
@@ -196,5 +194,35 @@ export async function fetchRecentViolations(): Promise<RecentViolationsResponse>
   return api<RecentViolationsResponse>(`${API_URL}/Dashboard/recent`, {
     method: 'GET',
     headers: getAuthHeaders(),
+  });
+}
+
+export async function fetchAccounts(): Promise<Account[]> {
+  return api<Account[]>(`${API_URL}/Admin/accounts`, {
+    method: 'GET',
+    headers: getAuthHeaders(),
+  });
+}
+
+export async function fetchDeleteAccount(username: string): Promise<{ success: boolean; message?: string }> {
+  return api<{ success: boolean; message?: string }>(`${API_URL}/Admin/delete-account/${encodeURIComponent(username)}`, {
+    method: 'DELETE',
+    headers: getAuthHeaders(),
+  });
+}
+
+export async function fetchCreateAccount(account: { username: string; fullName: string; role: string; password: string }): Promise<{ success: boolean; message?: string }> {
+  return api<{ success: boolean; message?: string }>(`${API_URL}/Admin/create-account`, {
+    method: 'POST',
+    headers: getAuthHeaders(),
+    body: JSON.stringify(account),
+  });
+}
+
+export async function fetchUpdateStatusAccount(username: string, status: number): Promise<{ success: boolean; message?: string }> {
+  return api<{ success: boolean; message?: string }>(`${API_URL}/Admin/status-account`, {
+    method: 'PATCH',
+    headers: getAuthHeaders(),
+    body: JSON.stringify({ username, status }),
   });
 }

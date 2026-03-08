@@ -10,7 +10,6 @@ import { ChartLineDots } from "@/components/chart-line-dots";
 import { WidgetsBarChart } from "@/components/barChart";
 import { NewViolationsRadial } from "@/components/radialChart";
 
-import data from "./data.json";
 
 export default function Page() {
   return (
@@ -41,7 +40,6 @@ export default function Page() {
                 <NewViolationsRadial />
                 <WidgetsBarChart />
               </div>
-              <DataTable data={data} />
             </div>
           </div>
         </div>
