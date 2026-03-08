@@ -212,6 +212,25 @@ export interface DashboardWidgetsResponse {
   };
 }
 
+export interface Account {
+  username: string;
+  fullName: string;
+  role: string;
+  status: number;
+}
+
+export interface StatusAccount {
+  success: boolean;
+  message?: string;
+}
+
+export interface CreateAccount {
+  username: string;
+  password: string;
+  fullName: string;
+  role: string;
+}
+
 export function isLoginSuccess(response: LoginResponse): response is LoginResponse & { token: string; user: AccountDetail } {
   return !!response.token && !!response.user;
 }

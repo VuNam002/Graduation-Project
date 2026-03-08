@@ -21,7 +21,7 @@ import { fetchDashboardWidgets } from "@/lib/api"
 const chartConfig = {
   value: {
     label: "Số lượng",
-    color: "hsl(var(--chart-1))",
+    color: "#0099FF",
   },
 } satisfies ChartConfig
 

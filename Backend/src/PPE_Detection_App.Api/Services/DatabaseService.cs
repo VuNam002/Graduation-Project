@@ -403,24 +403,39 @@ namespace PPE_Detection_App.Api.Services
 
                 }
 
-        
-
-                public async Task UpdateUserPasswordHashAsync(string username, string passwordHash)
-
+                public async Task DeleteAdminUserAsync(string username)
                 {
-
                     using var connection = new SqlConnection(_connectionString);
-
                     string sql = @"
-
                         UPDATE Admin_User 
-
-                        SET Password_Hash = @PasswordHash 
-
+                        SET Is_Deleted = 1 
                         WHERE Username = @Username";
+                    await connection.ExecuteAsync(sql, new { Username = username });
+                }
 
+        public async Task UpdateStatusAdminUserAsync(string username, byte status)
+        {
+            using var connection = new SqlConnection(_connectionString);
+            string sql = @"
+                UPDATE Admin_User
+                SET Status = @Status
+                WHERE Username = @Username
+                AND Is_Deleted = 0";
+            await connection.ExecuteAsync(sql, new
+            {
+                Username = username,
+                Status = status  
+            });
+        }
+
+        public async Task UpdateUserPasswordHashAsync(string username, string passwordHash)
+                {
+                    using var connection = new SqlConnection(_connectionString);
+                    string sql = @"
+                        UPDATE Admin_User 
+                        SET Password_Hash = @PasswordHash 
+                        WHERE Username = @Username";
                     await connection.ExecuteAsync(sql, new { Username = username, PasswordHash = passwordHash });
-
                 }
             }
 
