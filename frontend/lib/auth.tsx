@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect, createContext, useContext, ReactNode } from 'react';
-import { getUserFromToken, clearStoredToken } from './api';
+import { getUserFromToken, clearStoredToken, logout as apiLogout } from './api';
 import { AccountDetail } from './types';
 import { useRouter } from 'next/navigation';
 
@@ -33,10 +33,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(userData);
   };
 
-  const logout = () => {
-    setUser(null);
-    clearStoredToken();
-    router.push('/login');
+  const logout = async () => {
+    try {
+      await apiLogout();
+    } catch (error) {
+      console.error("Logout failed", error);
+      // still log out on client side
+    } finally {
+      setUser(null);
+      clearStoredToken();
+      router.push('/login');
+    }
   };
 
   const value = {

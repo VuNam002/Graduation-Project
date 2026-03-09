@@ -244,6 +244,17 @@ export async function fetchStartCamera(cameraId: number | string): Promise<Camer
   });
 }
 
+export async function logout(): Promise<void> {
+  await api<void>(`${API_URL}/Auth/logout`, {
+    method: 'POST',
+    headers: {
+      ...getAuthHeaders(),
+      'Content-Type': 'application/json',
+    },
+  });
+  localStorage.removeItem('token');
+}
+
 export async function fetchStopCamera(cameraId: number | string): Promise<CameraResponse> {
   return api<CameraResponse>(`${API_URL}/Stream/stop/${cameraId}`, {
     method: 'POST',

@@ -96,5 +96,11 @@ namespace PPE_Detection_App.Api.Controllers
             var accounts = await _authService.GetAllAsync(); 
             return Ok(accounts);
         }
+        [Authorize]
+        [HttpPost("logout")]
+        public IActionResult Logout()
+        {
+            return Ok(new { message = "Đăng xuất thành công" });
+        }
     } 
 }

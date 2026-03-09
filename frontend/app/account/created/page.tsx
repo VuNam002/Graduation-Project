@@ -122,7 +122,7 @@ export default function CreateAccountPage() {
             <CardHeader>
               <CardTitle>Thông tin tài khoản</CardTitle>
             </CardHeader>
-            <form onSubmit={handleSubmit}>
+            <form onSubmit={handleSubmit} autoComplete="off">
               <CardContent className="space-y-6">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div className="space-y-2">

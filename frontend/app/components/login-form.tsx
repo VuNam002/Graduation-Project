@@ -103,10 +103,7 @@ export function LoginForm({
                   {loading ? "Đang đăng nhập..." : "Đăng nhập"}
                 </Button>
                 <FieldDescription className="text-center mt-4">
-                  Chưa có tài khoản?{" "}
-                  <a href="/register" className="underline hover:text-primary">
-                    Đăng ký
-                  </a>
+                  Vũ Hà Nam ❤️ TUD-K63{" "}
                 </FieldDescription>
               </Field>
             </FieldGroup>
