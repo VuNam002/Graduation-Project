@@ -38,7 +38,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       await apiLogout();
     } catch (error) {
       console.error("Logout failed", error);
-      // still log out on client side
     } finally {
       setUser(null);
       clearStoredToken();

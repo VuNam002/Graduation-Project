@@ -16,6 +16,7 @@ import {
   IconSearch,
   IconSettings,
   IconCashPlus ,
+  IconXboxX ,
   IconUsers,
 } from "@tabler/icons-react"
 import Link from "next/link"
@@ -59,9 +60,16 @@ const data = {
       icon: IconListDetails,
     },
     {
-      title: "Analytics",
+      title: "Vi phạm",
       url: "#",
-      icon: IconChartBar,
+      icon: IconXboxX ,
+      isActive: false,
+      items: [
+        {
+        title: "Danh sách vi phạm",
+        url: "/violations"
+        }
+      ]
     },
     {
       title: "Projects",

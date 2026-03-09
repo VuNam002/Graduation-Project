@@ -236,6 +236,37 @@ export interface CameraResponse {
   cameraId: number;
 }
 
+export interface ViolationLog {
+  id: number
+  categoryId: string
+  categoryDisplayName?: string
+  severityLevel?: number
+  colorCode?: string
+  imagePath: string
+  confidenceScore?: number
+  detectedTime: string
+  boxX?: number
+  boxY?: number
+  boxW?: number
+  boxH?: number
+  status: number       
+  isDeleted: boolean
+}
+
+export interface ViolationCategory {
+  id: string
+  displayName: string
+  severityLevel: number
+  colorCode: string
+  count: number       
+}
+
+export interface PaginatedViolationsResponse {
+  data: ViolationLog[]
+  totalCount: number
+}
+
+
 export function isLoginSuccess(response: LoginResponse): response is LoginResponse & { token: string; user: AccountDetail } {
   return !!response.token && !!response.user;
 }

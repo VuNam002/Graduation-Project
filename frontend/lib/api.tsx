@@ -1,11 +1,9 @@
-import { LoginResponse, AccountDetail, DashboardResponse, RecentViolationsResponse, DashboardMonthlyResponse, DashboardWidgetsResponse, Account, CameraResponse} from './types';
+import { LoginResponse, AccountDetail, DashboardResponse, RecentViolationsResponse, DashboardMonthlyResponse, DashboardWidgetsResponse, Account, CameraResponse, PaginatedViolationsResponse, ViolationCategory } from './types';
 
 const API_URL = 'https://localhost:7215/api';
-// Generic API helper function
 async function api<T>(url: string, options: RequestInit = {}): Promise<T> {
   try {     
     const headers: Record<string, string> = { ...options.headers };
-    // Only add Content-Type for requests with a body
     if (options.body) {
       headers['Content-Type'] = 'application/json';
     }
@@ -28,7 +26,6 @@ async function api<T>(url: string, options: RequestInit = {}): Promise<T> {
       );
     }
 
-    // Handle cases where response is empty
     const text = await response.text();
     return text ? (JSON.parse(text) as T) : ({} as T);
 
@@ -40,7 +37,6 @@ async function api<T>(url: string, options: RequestInit = {}): Promise<T> {
   }
 }
 
-// Helper to safely access localStorage
 function getStoredToken(): string | null {
   if (typeof window === 'undefined') return null;
   return localStorage.getItem("token");
@@ -60,7 +56,6 @@ export function clearStoredToken(): void {
   }
 }
 
-// Decode JWT token to get user info
 function decodeJWT(token: string): AccountDetail | null {
   try {
     const base64Url = token.split('.')[1];
@@ -91,7 +86,6 @@ function getAuthHeaders(): Record<string, string> {
   return token ? { Authorization: `Bearer ${token}` } : {};
 }
 
-// ===== AUTH =====
 
 export async function fetchlogin(
   username: string,
@@ -262,5 +256,62 @@ export async function fetchStopCamera(cameraId: number | string): Promise<Camera
       ...getAuthHeaders(),
       'Content-Type': 'application/json',
     },
+  });
+}
+
+export interface ViolationParams {
+  page?: number;
+  pageSize?: number;
+  fromDate?: string;
+  toDate?: string;
+  categoryId?: string;
+  status?: number | string;
+}
+
+export async function fetchViolations(
+  params: ViolationParams = {}
+): Promise<PaginatedViolationsResponse> {
+  const query = new URLSearchParams();
+
+  if (params.page) query.append('page', String(params.page));
+  if (params.pageSize) query.append('pageSize', String(params.pageSize));
+  if (params.fromDate) query.append('fromDate', params.fromDate);
+  if (params.toDate) query.append('toDate', params.toDate);
+  if (params.categoryId && params.categoryId !== 'all') query.append('categoryId', params.categoryId);
+  if (params.status && params.status !== 'all') query.append('status', String(params.status));
+
+  const queryString = query.toString();
+  const url = `${API_URL}/Violation${queryString ? `?${queryString}` : ''}`;
+
+  return api<PaginatedViolationsResponse>(url, {
+    method: 'GET',
+    headers: getAuthHeaders(),
+  });
+}
+
+export async function fetchUpdateViolationStatus(
+  id: number,
+  status: 0 | 1 | 2
+): Promise<{ success: boolean; message?: string }> {
+  return api<{ success: boolean; message?: string }>(`${API_URL}/Violation/status`, {
+    method: 'PUT',
+    headers: getAuthHeaders(),
+    body: JSON.stringify({ violationId: id, status: status }),
+  });
+}
+
+export async function fetchDeleteViolation(
+  id: number
+): Promise<{ success: boolean; message?: string }> {
+  return api<{ success: boolean; message?: string }>(`${API_URL}/Violation/${id}`, {
+    method: 'DELETE',
+    headers: getAuthHeaders(),
+  });
+}
+
+export async function fetchCategories(): Promise<ViolationCategory[]> {
+  return api<ViolationCategory[]>(`${API_URL}/Category`, {
+    method: 'GET',
+    headers: getAuthHeaders(),
   });
 }
