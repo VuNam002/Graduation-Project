@@ -231,6 +231,11 @@ export interface CreateAccount {
   role: string;
 }
 
+export interface CameraResponse {
+  message: string;
+  cameraId: number;
+}
+
 export function isLoginSuccess(response: LoginResponse): response is LoginResponse & { token: string; user: AccountDetail } {
   return !!response.token && !!response.user;
 }

@@ -58,8 +58,8 @@ const data = {
       ]
     },
     {
-      title: "Lifecycle",
-      url: "#",
+      title: "Camera",
+      url: "/camera",
       icon: IconListDetails,
     },
     {

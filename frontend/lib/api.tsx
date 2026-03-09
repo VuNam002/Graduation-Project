@@ -1,4 +1,4 @@
-import { LoginResponse, AccountDetail, DashboardResponse, RecentViolationsResponse, DashboardMonthlyResponse, DashboardWidgetsResponse, Account} from './types';
+import { LoginResponse, AccountDetail, DashboardResponse, RecentViolationsResponse, DashboardMonthlyResponse, DashboardWidgetsResponse, Account, CameraResponse} from './types';
 
 const API_URL = 'https://localhost:7215/api';
 // Generic API helper function
@@ -224,5 +224,32 @@ export async function fetchUpdateStatusAccount(username: string, status: number)
     method: 'PATCH',
     headers: getAuthHeaders(),
     body: JSON.stringify({ username, status }),
+  });
+}
+
+export async function fetchCameraStatus(cameraId: number | string): Promise<any> {
+  return api<any>(`${API_URL}/Stream/status/${cameraId}`, {
+    method: 'GET',
+    headers: getAuthHeaders(),
+  });
+}
+
+export async function fetchStartCamera(cameraId: number | string): Promise<CameraResponse> {
+  return api<CameraResponse>(`${API_URL}/Stream/start/${cameraId}`, {
+    method: 'POST',
+    headers: {
+      ...getAuthHeaders(),
+      'Content-Type': 'application/json',
+    },
+  });
+}
+
+export async function fetchStopCamera(cameraId: number | string): Promise<CameraResponse> {
+  return api<CameraResponse>(`${API_URL}/Stream/stop/${cameraId}`, {
+    method: 'POST',
+    headers: {
+      ...getAuthHeaders(),
+      'Content-Type': 'application/json',
+    },
   });
 }
