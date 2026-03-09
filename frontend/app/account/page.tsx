@@ -161,7 +161,7 @@ export default function AccountPage() {
                                 </Badge>
                               ) : (
                                 <Badge variant="destructive" className="text-sm px-3 py-1">
-                                  <IconX className="mr-1 size-4" /> Vô hiệu hóa
+                                  <IconX className="mr-1 size-4" /> Tạm dừng
                                 </Badge>
                               )}
                             </div>
