@@ -97,6 +97,7 @@ namespace PPE_Detection_App.Api.Services
                 Password_Hash = BCrypt.Net.BCrypt.HashPassword(request.Password),
                 Full_Name = request.FullName,
                 Role = request.Role,
+                Status = request.Status,
                 Is_Deleted = false
             };
 

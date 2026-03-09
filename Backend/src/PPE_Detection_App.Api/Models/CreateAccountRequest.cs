@@ -16,5 +16,6 @@ namespace PPE_Detection_App.Api.Models
         public string FullName { get; set; } = string.Empty;
 
         public string Role { get; set; } = "User"; // Mặc định là User
+        public byte Status { get; set; }
     }
 }
