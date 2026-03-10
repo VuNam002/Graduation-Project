@@ -58,7 +58,7 @@ const data = {
       items: [
         {
         title: "Danh sách vi phạm",
-        url: "/violations"
+        url: "/violation"
         }
       ]
     }
