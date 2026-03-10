@@ -61,14 +61,14 @@ export function SectionCards() {
   const { trend, todaySummary, topViolations } = data
   
   const getTrendIcon = () => {
-    if (trend.change.direction === 'increasing') return IconTrendingUp
-    if (trend.change.direction === 'decreasing') return IconTrendingDown
+    if (trend.change.direction === 'up') return IconTrendingUp
+    if (trend.change.direction === 'down') return IconTrendingDown
     return IconMinus
   }
   
   const getTrendColor = () => {
-    if (trend.change.direction === 'increasing') return "text-red-500"
-    if (trend.change.direction === 'decreasing') return "text-green-500"
+    if (trend.change.direction === 'up') return "text-red-500"
+    if (trend.change.direction === 'down') return "text-green-500"
     return "text-gray-500"
   }
   

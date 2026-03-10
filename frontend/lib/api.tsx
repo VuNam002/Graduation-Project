@@ -1,9 +1,9 @@
-import { LoginResponse, AccountDetail, DashboardResponse, RecentViolationsResponse, DashboardMonthlyResponse, DashboardWidgetsResponse, Account, CameraResponse, PaginatedViolationsResponse, ViolationCategory } from './types';
+import { LoginResponse, AccountDetail, DashboardResponse, RecentViolationsResponse, DashboardMonthlyResponse, DashboardWidgetsResponse, Account, CameraResponse, PaginatedViolationsResponse, ViolationCategory, ViolationLog } from './types';
 
 const API_URL = 'https://localhost:7215/api';
 async function api<T>(url: string, options: RequestInit = {}): Promise<T> {
   try {     
-    const headers: Record<string, string> = { ...options.headers };
+    const headers: Record<string, string> = { ...(options.headers as any) };
     if (options.body) {
       headers['Content-Type'] = 'application/json';
     }
@@ -314,4 +314,16 @@ export async function fetchCategories(): Promise<ViolationCategory[]> {
     method: 'GET',
     headers: getAuthHeaders(),
   });
+}
+
+export async function fetchDetailViolation(id: number): Promise<ViolationLog> {
+  const response = await api<{ success: boolean; data: ViolationLog }>(`${API_URL}/Violation/${id}`, {
+    method: 'GET',
+    headers: getAuthHeaders(),
+  });
+  return response.data || ({} as ViolationLog);
+}
+
+export function getBackendUrl(): string {
+  return API_URL.replace(/\/api\/?$/, '');
 }

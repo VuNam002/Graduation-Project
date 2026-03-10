@@ -41,7 +41,7 @@ export function NewViolationsRadial() {
         
         if (result.success) {
           setData({
-            percentage: result.widgets.newViolations.percentage,
+            percentage: result.widgets.newViolations.percentage || 0,
             value: result.widgets.newViolations.value,
             total: result.widgets.today.value
           })

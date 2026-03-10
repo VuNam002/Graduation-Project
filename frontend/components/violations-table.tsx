@@ -8,8 +8,10 @@ import {
   IconFilter,
   IconChevronLeft,
   IconChevronRight,
+  IconPhoto,
 } from "@tabler/icons-react"
 import { toast } from "sonner"
+import { useRouter } from "next/navigation"
 
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -30,6 +32,12 @@ import {
 } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
 import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
+import {
   Table,
   TableBody,
   TableCell,
@@ -42,6 +50,7 @@ import {
   fetchUpdateViolationStatus,
   fetchDeleteViolation,
   fetchCategories,
+  getBackendUrl,
 } from "@/lib/api"
 import { ViolationLog, ViolationCategory } from "@/lib/types"
 
@@ -83,11 +92,13 @@ function SeverityBadge({ level }: { level?: number }) {
 const PAGE_SIZE = 10
 
 export function ViolationsTable() {
+  const router = useRouter()
   const [violations, setViolations] = React.useState<ViolationLog[]>([])
   const [categories, setCategories] = React.useState<ViolationCategory[]>([])
   const [totalCount, setTotalCount] = React.useState(0)
   const [loading, setLoading] = React.useState(true)
   const [updating, setUpdating] = React.useState<number | null>(null)
+  const [previewImage, setPreviewImage] = React.useState<string | null>(null)
 
   const [fromDate, setFromDate] = React.useState("")
   const [toDate, setToDate] = React.useState("")
@@ -108,7 +119,7 @@ export function ViolationsTable() {
 
       const res = await fetchViolations(params)
       setViolations(res.data)
-      setTotalCount(res.totalCount)
+      setTotalCount(res.pagination.totalRecords)
     } catch {
       toast.error("Không thể tải danh sách vi phạm")
     } finally {
@@ -133,7 +144,7 @@ export function ViolationsTable() {
 
   const handleStatusChange = async (id: number, currentStatus: number) => {
     if (updating !== null) return
-    const nextStatus = (currentStatus + 1) % 3
+    const nextStatus = ((currentStatus + 1) % 3) as 0 | 1 | 2
     setUpdating(id)
     try {
       const result = await fetchUpdateViolationStatus(id, nextStatus)
@@ -282,7 +293,6 @@ export function ViolationsTable() {
                   <TableHead className="text-base py-4">ID</TableHead>
                   <TableHead className="text-base py-4">Loại vi phạm</TableHead>
                   <TableHead className="text-base py-4">Mức độ</TableHead>
-                  <TableHead className="text-base py-4">Độ tin cậy</TableHead>
                   <TableHead className="text-base py-4">Thời gian</TableHead>
                   <TableHead className="text-base py-4">Trạng thái</TableHead>
                   <TableHead className="text-base py-4">Hành động</TableHead>
@@ -301,17 +311,13 @@ export function ViolationsTable() {
                               style={{ backgroundColor: v.colorCode }}
                             />
                           )}
-                          {v.categoryDisplayName ?? v.categoryId}
+                          {v.displayName ?? v.categoryId}
                         </div>
                       </TableCell>
                       <TableCell className="py-4">
                         <SeverityBadge level={v.severityLevel} />
                       </TableCell>
-                      <TableCell className="text-base py-4">
-                        {v.confidenceScore != null
-                          ? `${(v.confidenceScore * 100).toFixed(1)}%`
-                          : "—"}
-                      </TableCell>
+                      
                       <TableCell className="text-base py-4">
                         {new Date(v.detectedTime).toLocaleString("vi-VN")}
                       </TableCell>
@@ -331,10 +337,24 @@ export function ViolationsTable() {
                           <Button
                             variant="ghost"
                             size="icon"
-                            title="Xem ảnh vi phạm"
-                            onClick={() => window.open(v.imagePath, "_blank")}
+                            title="Xem chi tiết"
+                            onClick={() => router.push(`/violations/${v.id}`)}
                           >
                             <IconEye className="size-5 text-blue-500" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            title="Xem ảnh gốc"
+                            onClick={() => {
+                              const backendUrl = getBackendUrl();
+                              const fullUrl = v.imagePath.startsWith('http') 
+                                ? v.imagePath 
+                                : `${backendUrl}${v.imagePath.startsWith('/') ? '' : '/'}${v.imagePath}`;
+                              setPreviewImage(fullUrl);
+                            }}
+                          >
+                            <IconPhoto className="size-5 text-green-600" />
                           </Button>
                           <Button
                             variant="ghost"
@@ -386,6 +406,22 @@ export function ViolationsTable() {
           </CardContent>
         </Card>
       )}
+
+      <Dialog open={!!previewImage} onOpenChange={(open) => !open && setPreviewImage(null)}>
+        <DialogContent className="max-w-5xl">
+          <DialogHeader>
+            <DialogTitle>Ảnh gốc</DialogTitle>
+          </DialogHeader>
+          <div className="flex items-center justify-center bg-black/5 rounded-md p-2">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img 
+              src={previewImage || ""} 
+              alt="Preview" 
+              className="max-w-full max-h-[80vh] object-contain rounded-md"
+            />
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

@@ -82,10 +82,12 @@ export interface ViolationsByCategory {
 }
 
 export interface TopViolation {
-  id?: string;
-  name?: string;
-  count?: number;
-  [key: string]: unknown;
+  categoryId: string;
+  displayName: string;
+  count: number;
+  avgConfidence: number;
+  severityLevel: number;
+  colorCode: string;
 }
 
 export interface PeakHours {
@@ -103,7 +105,7 @@ export interface TrendPeriod {
 export interface TrendChange {
   percentage: number;
   isIncreasing: boolean;
-  direction: 'stable' | 'increasing' | 'decreasing';
+  direction: 'stable' | 'up' | 'down';
   text: string;
   color: string;
 }
@@ -239,18 +241,21 @@ export interface CameraResponse {
 export interface ViolationLog {
   id: number
   categoryId: string
-  categoryDisplayName?: string
+  displayName?: string
   severityLevel?: number
   colorCode?: string
   imagePath: string
-  confidenceScore?: number
+  confidence?: number
   detectedTime: string
-  boxX?: number
-  boxY?: number
-  boxW?: number
-  boxH?: number
+  box?: {
+    x: number
+    y: number
+    width: number
+    height: number
+  }
   status: number       
-  isDeleted: boolean
+  statusText?: string
+  isDeleted?: boolean
 }
 
 export interface ViolationCategory {
@@ -262,8 +267,14 @@ export interface ViolationCategory {
 }
 
 export interface PaginatedViolationsResponse {
+  success: boolean
   data: ViolationLog[]
-  totalCount: number
+  pagination: {
+    currentPage: number
+    pageSize: number
+    totalRecords: number
+    totalPages: number
+  }
 }
 
 

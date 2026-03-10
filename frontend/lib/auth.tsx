@@ -9,21 +9,21 @@ interface AuthContextType {
   user: AccountDetail | null; 
   login: (userData: AccountDetail) => void;
   logout: () => void;
-  loading: boolean;
+  isLoading: boolean;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AccountDetail | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(true);
   const router = useRouter();
 
   useEffect(() => {
     const initAuth = () => {
       const userData = getUserFromToken();
       setUser(userData);
-      setLoading(false);
+      setIsLoading(false);
     };
 
     initAuth();
@@ -49,13 +49,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     user,
     login,
     logout,
-    loading,
+    isLoading,
   };
 
   return (
-    <AuthContext.Provider value={value}>
-      {!loading && children}
-    </AuthContext.Provider>
+    <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
   );
 }
 
