@@ -2,12 +2,9 @@
 
 import * as React from "react"
 import {
-  IconEye,
   IconTrash,
   IconAlertTriangle,
   IconFilter,
-  IconChevronLeft,
-  IconChevronRight,
   IconPhoto,
 } from "@tabler/icons-react"
 import { toast } from "sonner"
@@ -31,6 +28,15 @@ import {
   CardTitle,
 } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
+import {
+  Pagination,
+  PaginationContent,
+  PaginationEllipsis,
+  PaginationItem,
+  PaginationLink,
+  PaginationNext,
+  PaginationPrevious,
+} from "@/components/ui/pagination"
 import {
   Dialog,
   DialogContent,
@@ -337,14 +343,6 @@ export function ViolationsTable() {
                           <Button
                             variant="ghost"
                             size="icon"
-                            title="Xem chi tiết"
-                            onClick={() => router.push(`/violations/${v.id}`)}
-                          >
-                            <IconEye className="size-5 text-blue-500" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
                             title="Xem ảnh gốc"
                             onClick={() => {
                               const backendUrl = getBackendUrl();
@@ -379,28 +377,59 @@ export function ViolationsTable() {
             </Table>
 
             {totalPages > 1 && (
-              <div className="flex items-center justify-between mt-4">
-                <span className="text-sm text-muted-foreground">
-                  Trang {page} / {totalPages}
-                </span>
-                <div className="flex items-center gap-2">
-                  <Button
-                    variant="outline"
-                    size="icon"
-                    disabled={page <= 1}
-                    onClick={() => setPage((p) => p - 1)}
-                  >
-                    <IconChevronLeft className="size-4" />
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="icon"
-                    disabled={page >= totalPages}
-                    onClick={() => setPage((p) => p + 1)}
-                  >
-                    <IconChevronRight className="size-4" />
-                  </Button>
-                </div>
+              <div className="mt-4">
+                <Pagination>
+                  <PaginationContent>
+                    <PaginationItem>
+                      <PaginationPrevious
+                        href="#"
+                        onClick={(e) => {
+                          e.preventDefault()
+                          if (page > 1) setPage((p) => p - 1)
+                        }}
+                        className={page <= 1 ? "pointer-events-none opacity-50" : ""}
+                      />
+                    </PaginationItem>
+
+                    {Array.from({ length: totalPages }, (_, i) => i + 1).map((p) => {
+                      if (p === 1 || p === totalPages || (p >= page - 1 && p <= page + 1)) {
+                        return (
+                          <PaginationItem key={p}>
+                            <PaginationLink
+                              href="#"
+                              isActive={p === page}
+                              onClick={(e) => {
+                                e.preventDefault()
+                                setPage(p)
+                              }}
+                            >
+                              {p}
+                            </PaginationLink>
+                          </PaginationItem>
+                        )
+                      }
+                      if ((p === page - 2 && p > 1) || (p === page + 2 && p < totalPages)) {
+                        return (
+                          <PaginationItem key={p}>
+                            <PaginationEllipsis />
+                          </PaginationItem>
+                        )
+                      }
+                      return null
+                    })}
+
+                    <PaginationItem>
+                      <PaginationNext
+                        href="#"
+                        onClick={(e) => {
+                          e.preventDefault()
+                          if (page < totalPages) setPage((p) => p + 1)
+                        }}
+                        className={page >= totalPages ? "pointer-events-none opacity-50" : ""}
+                      />
+                    </PaginationItem>
+                  </PaginationContent>
+                </Pagination>
               </div>
             )}
           </CardContent>

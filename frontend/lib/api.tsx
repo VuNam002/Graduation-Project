@@ -293,10 +293,10 @@ export async function fetchUpdateViolationStatus(
   id: number,
   status: 0 | 1 | 2
 ): Promise<{ success: boolean; message?: string }> {
-  return api<{ success: boolean; message?: string }>(`${API_URL}/Violation/status`, {
+  return api<{ success: boolean; message?: string }>(`${API_URL}/Violation/${id}/status`, {
     method: 'PUT',
     headers: getAuthHeaders(),
-    body: JSON.stringify({ violationId: id, status: status }),
+    body: JSON.stringify({ status }),
   });
 }
 
