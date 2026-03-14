@@ -8,20 +8,21 @@ namespace PPE_Detection_App.Api.Controllers
     [Route("api/[controller]")]
     public class ViolationController : ControllerBase
     {
-        // Khai báo 2 Repository/Service mới
         private readonly ViolationRepository _violationRepo;
         private readonly DashboardStatisticService _dashboardService;
         private readonly ILogger<ViolationController> _logger;
+        private readonly EmailService _emailService;
 
-        // Inject 2 service vào constructor
         public ViolationController(
             ViolationRepository violationRepo,
             DashboardStatisticService dashboardService,
-            ILogger<ViolationController> logger)
+            ILogger<ViolationController> logger,
+            EmailService emailService)
         {
             _violationRepo = violationRepo;
             _dashboardService = dashboardService;
             _logger = logger;
+            _emailService = emailService;
         }
 
         [HttpGet]
@@ -38,7 +39,6 @@ namespace PPE_Detection_App.Api.Controllers
                 if (page < 1) page = 1;
                 if (pageSize < 1 || pageSize > 100) pageSize = 20;
 
-                // Sử dụng _violationRepo
                 var (data, totalCount) = await _violationRepo.GetViolationsAsync(
                     fromDate, toDate, categoryId, status, page, pageSize);
 
@@ -87,12 +87,36 @@ namespace PPE_Detection_App.Api.Controllers
             }
         }
 
+        [HttpPost("send-alert")]
+        public IActionResult SendAlert([FromBody] ViolationAlertRequest request)
+        {
+            try
+            {
+                if (string.IsNullOrEmpty(request.ManagerEmail) || string.IsNullOrEmpty(request.ImageUrl))
+                {
+                    return BadRequest(new { success = false, error = "Thiếu thông tin email hoặc link ảnh vi phạm!" });
+                }
+
+                _emailService.SendViolationEmail(request.ManagerEmail, request.ImageUrl, request.Location);
+
+                return Ok(new
+                {
+                    success = true,
+                    message = "Đã gửi email cảnh báo vi phạm thành công!"
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error sending alert email");
+                return StatusCode(500, new { success = false, error = "Lỗi hệ thống khi gửi email" });
+            }
+        }
+
         [HttpGet("{id}")]
         public async Task<IActionResult> GetViolationById(long id)
         {
             try
             {
-                // Sử dụng _violationRepo
                 var violation = await _violationRepo.GetViolationByIdAsync(id);
 
                 if (violation == null)
@@ -148,7 +172,6 @@ namespace PPE_Detection_App.Api.Controllers
                     return BadRequest(new { success = false, error = "Trạng thái không hợp lệ. Cho phép: 0 (Mới), 1 (Đã xem), 2 (Báo động giả)" });
                 }
 
-                // Sử dụng _violationRepo
                 var result = await _violationRepo.UpdateViolationStatusAsync(id, request.Status);
 
                 if (!result)
@@ -186,7 +209,6 @@ namespace PPE_Detection_App.Api.Controllers
         {
             try
             {
-                // Sử dụng _violationRepo
                 var result = await _violationRepo.DeleteViolationAsync(id);
 
                 if (!result)
@@ -218,7 +240,6 @@ namespace PPE_Detection_App.Api.Controllers
                 var end = endDate ?? DateTime.Today;
                 var start = startDate ?? end.AddDays(-6);
 
-                // Sử dụng _dashboardService
                 var stats = await _dashboardService.GetViolationStatsByDateAsync(start, end);
 
                 return Ok(new
@@ -249,7 +270,6 @@ namespace PPE_Detection_App.Api.Controllers
         {
             try
             {
-                // Sử dụng _dashboardService
                 var stats = await _dashboardService.GetViolationStatsByCategoryAsync(startDate, endDate);
 
                 return Ok(new
@@ -284,7 +304,6 @@ namespace PPE_Detection_App.Api.Controllers
             {
                 if (top < 1 || top > 20) top = 5;
 
-                // Sử dụng _dashboardService
                 var stats = await _dashboardService.GetTopViolationsAsync(top, startDate, endDate);
 
                 return Ok(new
@@ -318,7 +337,6 @@ namespace PPE_Detection_App.Api.Controllers
                 var end = endDate ?? DateTime.Today;
                 var start = startDate ?? end.AddDays(-6);
 
-                // Sử dụng _dashboardService
                 var stats = await _dashboardService.GetViolationStatsByHourAsync(start, end);
 
                 return Ok(new
@@ -350,7 +368,6 @@ namespace PPE_Detection_App.Api.Controllers
                 var end = endDate ?? DateTime.Today;
                 var start = startDate ?? end.AddDays(-6);
 
-                // Sử dụng _dashboardService
                 var trend = await _dashboardService.GetViolationTrendAsync(start, end);
 
                 return Ok(new
@@ -384,14 +401,11 @@ namespace PPE_Detection_App.Api.Controllers
             try
             {
                 var today = DateTime.Today;
-
-                // Sử dụng _dashboardService
                 var summary = await _dashboardService.GetDashboardSummaryAsync(today);
 
                 string? topCategoryName = null;
                 if (!string.IsNullOrEmpty(summary.TopCategory))
                 {
-                    // Sử dụng _violationRepo
                     var categories = await _violationRepo.GetAllCategoriesAsync();
                     topCategoryName = categories.FirstOrDefault(c => c.Id == summary.TopCategory)?.Display_Name;
                 }
@@ -426,5 +440,12 @@ namespace PPE_Detection_App.Api.Controllers
     public class UpdateStatusRequest
     {
         public byte Status { get; set; }
+    }
+
+    public class ViolationAlertRequest
+    {
+        public string ManagerEmail { get; set; }
+        public string ImageUrl { get; set; }
+        public string Location { get; set; }
     }
 }

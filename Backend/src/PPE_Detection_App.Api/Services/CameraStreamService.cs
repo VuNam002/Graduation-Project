@@ -21,7 +21,7 @@ namespace PPE_Detection_App.Api.Services
         private readonly string _outputDirectory;
 
         private readonly ConcurrentDictionary<string, DateTime> _lastDetectionTimestamps = new();
-        private const int ViolationCooldownSeconds = 10;
+        private const int ViolationCooldownSeconds = 15;
 
         public CameraStreamService(IServiceProvider serviceProvider, ILogger<CameraStreamService> logger, IWebHostEnvironment env, WebSocketManagerService webSocketManager)
         {
@@ -90,13 +90,14 @@ namespace PPE_Detection_App.Api.Services
                 Image<Rgba32>? imageForProcessing = null;
                 try
                 {
-                    // ✅ Convert BGR → RGBA trực tiếp, không qua Bitmap
                     Cv2.CvtColor(frame, rgbaFrame, ColorConversionCodes.BGR2RGBA);
                     imageForProcessing = ConvertMatToImageSharp(rgbaFrame);
 
                     using var scope = _serviceProvider.CreateScope();
                     var yoloProcessor = scope.ServiceProvider.GetRequiredService<YoloV8Processor>();
                     var violationRepo = scope.ServiceProvider.GetRequiredService<ViolationRepository>();
+                    var emailService = scope.ServiceProvider.GetRequiredService<EmailService>();
+                    var configuration = scope.ServiceProvider.GetRequiredService<IConfiguration>();
 
                     var detections = yoloProcessor.ProcessImage(imageForProcessing);
                     var allViolationDetections = detections.Where(d => _violationLabels.Contains(d.Label)).ToList();
@@ -123,7 +124,7 @@ namespace PPE_Detection_App.Api.Services
 
                     if (eligibleDetections.Any())
                     {
-                        await HandleViolations(eligibleDetections, imageForProcessing, violationRepo);
+                        await HandleViolations(eligibleDetections, imageForProcessing, violationRepo, emailService, configuration);
                     }
 
                     if (_webSocketManager.GetConnectionCount() > 0)
@@ -223,7 +224,7 @@ namespace PPE_Detection_App.Api.Services
             });
         }
 
-        private async Task HandleViolations(List<DetectionResult> detections, Image<Rgba32> image, ViolationRepository repo)
+        private async Task HandleViolations(List<DetectionResult> detections, Image<Rgba32> image, ViolationRepository repo, EmailService emailService, IConfiguration config)
         {
             if (!detections.Any()) return;
 
@@ -253,6 +254,16 @@ namespace PPE_Detection_App.Api.Services
             }
 
             _logger.LogInformation($"{detections.Count} new violations logged. Image saved to {imagePath}");
+
+            try 
+            {
+                string adminEmail = config["EmailSettings:AdminEmail"] ?? "vun197276@gmail.com"; 
+                emailService.SendViolationEmail(adminEmail, imagePath, $"Camera Detection (ID: {detections.First().Label})");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to send alert email.");
+            }
         }
 
         public void Dispose()
