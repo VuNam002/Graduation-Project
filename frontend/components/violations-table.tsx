@@ -174,9 +174,12 @@ export function ViolationsTable() {
     try {
       const result = await fetchDeleteViolation(id)
       if (result.success !== false) {
-        setViolations((prev) => prev.filter((v) => v.id !== id))
-        setTotalCount((c) => c - 1)
         toast.success("Xóa vi phạm thành công")
+        if (violations.length === 1 && page > 1) {
+          setPage((p) => p - 1)
+        } else {
+          loadData()
+        }
       } else {
         toast.error(result.message || "Không thể xóa vi phạm")
       }

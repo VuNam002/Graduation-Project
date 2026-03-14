@@ -1,5 +1,4 @@
 ﻿using Microsoft.AspNetCore.Authentication.JwtBearer;
-﻿using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.ML.OnnxRuntime;
 using Microsoft.OpenApi.Models;
@@ -92,30 +91,9 @@ builder.Services.AddScoped<EmailService>();
 var modelPath = Path.GetFullPath(Path.Combine(builder.Environment.ContentRootPath, "..", "..", "..", "AITooling", "yolo_model", "best.onnx"));
 if (!File.Exists(modelPath)) throw new FileNotFoundException($"Model file not found at: {modelPath}");
 
-builder.Services.AddSingleton(new InferenceSession(modelPath));
 builder.Services.AddSingleton(sp =>
 {
     var logger = sp.GetRequiredService<ILogger<Program>>();
-    var sessionOptions = new SessionOptions { LogSeverityLevel = OrtLoggingLevel.ORT_LOGGING_LEVEL_WARNING };
-
-    // Cấu hình ONNX Runtime để ưu tiên sử dụng GPU nếu có thể
-    // Ưu tiên 1: CUDA (NVIDIA)
-    try
-    {
-        sessionOptions.AppendExecutionProvider_CUDA(0); // 0 là device ID của GPU
-        logger.LogInformation("ONNX Runtime: Using CUDA Execution Provider.");
-        return new InferenceSession(modelPath, sessionOptions);
-    }
-    catch (Exception) { /* Bỏ qua nếu không có CUDA hoặc cài đặt lỗi */ }
-
-    // Ưu tiên 2: DirectML (Windows - Hỗ trợ nhiều loại GPU)
-    try
-    {
-        sessionOptions.AppendExecutionProvider_DML(0); // 0 là device ID của GPU
-        logger.LogInformation("ONNX Runtime: Using DirectML Execution Provider.");
-        return new InferenceSession(modelPath, sessionOptions);
-    }
-    catch (Exception) { /* Bỏ qua nếu không có DirectML hoặc cài đặt lỗi */ }
 
     // Mặc định: CPU
     logger.LogInformation("ONNX Runtime: Using CPU Execution Provider.");

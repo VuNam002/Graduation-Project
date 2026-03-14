@@ -19,6 +19,7 @@ namespace PPE_Detection_App.Api.Services
         private readonly ConcurrentDictionary<int, CancellationTokenSource> _activeCameras = new();
         private readonly List<string> _violationLabels = new List<string> { "NO-Gloves", "NO-Goggles", "NO-Hardhat", "NO-Mask", "NO-Safety Vest" };
         private readonly string _outputDirectory;
+        private readonly Font _font;
 
         private readonly ConcurrentDictionary<string, DateTime> _lastDetectionTimestamps = new();
         private const int ViolationCooldownSeconds = 15;
@@ -31,6 +32,18 @@ namespace PPE_Detection_App.Api.Services
             _outputDirectory = Path.Combine(env.WebRootPath, "violations");
             if (!Directory.Exists(_outputDirectory))
                 Directory.CreateDirectory(_outputDirectory);
+
+            try
+            {
+                _font = SystemFonts.CreateFont("Arial", 16, FontStyle.Bold);
+            }
+            catch
+            {
+                _logger.LogWarning("Arial font not found. Falling back to a default system font.");
+                _font = SystemFonts.Families.Any()
+                    ? new Font(SystemFonts.Families.First(), 16)
+                    : throw new Exception("No fonts found on the system. Cannot draw bounding boxes.");
+            }
         }
 
         public bool IsProcessing(int cameraId) => _activeCameras.ContainsKey(cameraId);
@@ -83,7 +96,7 @@ namespace PPE_Detection_App.Api.Services
             {
                 if (!capture.Read(frame) || frame.Empty())
                 {
-                    await Task.Delay(100, cancellationToken);
+                    await Task.Delay(10, cancellationToken); // Chờ một chút nếu không có frame
                     continue;
                 }
 
@@ -115,11 +128,14 @@ namespace PPE_Detection_App.Api.Services
                                 _lastDetectionTimestamps[detection.Label] = now;
                             }
                         }
+                    }
 
-                        foreach (var detection in allViolationDetections)
-                        {
-                            DrawBoundingBox(imageForProcessing, detection, isOnCooldown: !eligibleDetections.Contains(detection));
-                        }
+                    // Vẽ TẤT CẢ các đối tượng (Người, Mũ, Kính...) để hiển thị trên stream giúp bạn dễ theo dõi
+                    foreach (var detection in detections)
+                    {
+                        bool isViolation = _violationLabels.Contains(detection.Label);
+                        bool isOnCooldown = isViolation && !eligibleDetections.Contains(detection);
+                        DrawBoundingBox(imageForProcessing, detection, isViolation, isOnCooldown);
                     }
 
                     if (eligibleDetections.Any())
@@ -142,7 +158,9 @@ namespace PPE_Detection_App.Api.Services
                     imageForProcessing?.Dispose();
                 }
 
-                await Task.Delay(100, cancellationToken);
+                // Bỏ delay ở cuối vòng lặp để xử lý frame nhanh nhất có thể.
+                // FPS sẽ được giới hạn bởi tốc độ xử lý và tốc độ của camera.
+                await Task.Yield(); // Cho phép các tác vụ khác chạy
             }
         }
 
@@ -188,31 +206,20 @@ namespace PPE_Detection_App.Api.Services
             return $"data:image/jpeg;base64,{base64String}";
         }
 
-        private void DrawBoundingBox(Image image, DetectionResult detection, bool isOnCooldown = false)
+        private void DrawBoundingBox(Image image, DetectionResult detection, bool isViolation = false, bool isOnCooldown = false)
         {
             var box = detection.Box;
             var label = $"{detection.Label} ({detection.Confidence:P0})";
-
-            Font font;
-            try
-            {
-                font = SystemFonts.CreateFont("Arial", 16, FontStyle.Bold);
-            }
-            catch
-            {
-                font = SystemFonts.Families.Any()
-                    ? new Font(SystemFonts.Families.First(), 16)
-                    : throw new Exception("No fonts found on the system.");
-            }
-
-            var color = isOnCooldown ? Color.Yellow : Color.Red;
+            
+            // Màu Xanh lá cho đối tượng bình thường, Đỏ cho vi phạm mới, Vàng cho vi phạm đang cooldown
+            var color = isViolation ? (isOnCooldown ? Color.Yellow : Color.Red) : Color.LimeGreen;
             var rect = new RectangleF((float)box.Left, (float)box.Top, (float)box.Width, (float)box.Height);
 
             image.Mutate(x =>
             {
                 x.Draw(color, 2f, rect);
 
-                var textSize = TextMeasurer.MeasureSize(label, new TextOptions(font));
+                var textSize = TextMeasurer.MeasureSize(label, new TextOptions(_font));
                 var textLocation = new PointF(rect.Left, rect.Top - textSize.Height - 5);
 
                 if (textLocation.Y < 0)
@@ -220,7 +227,7 @@ namespace PPE_Detection_App.Api.Services
 
                 var textBackground = new RectangleF(textLocation.X, textLocation.Y, textSize.Width + 4, textSize.Height + 2);
                 x.Fill(Color.Black, textBackground);
-                x.DrawText(label, font, color, new PointF(textLocation.X + 2, textLocation.Y + 1));
+                x.DrawText(label, _font, color, new PointF(textLocation.X + 2, textLocation.Y + 1));
             });
         }
 
