@@ -3,6 +3,7 @@ using Microsoft.IdentityModel.Tokens;
 using Microsoft.ML.OnnxRuntime;
 using Microsoft.OpenApi.Models;
 using PPE_Detection_App.Api.Filters;
+using PPE_Detection_App.Api.Hubs;
 using PPE_Detection_App.Api.Services;
 using System.Text;
 
@@ -15,7 +16,6 @@ builder.Services.AddSwaggerGen(c =>
     c.SwaggerDoc("v1", new OpenApiInfo { Title = "PPE Detection API", Version = "v1" });
     c.OperationFilter<FileUploadOperationFilter>();
 
-    // Cấu hình cho Swagger để sử dụng JWT
     c.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
     {
         Description = "JWT Authorization header using the Bearer scheme. Example: \"Authorization: Bearer {token}\"",
@@ -44,17 +44,20 @@ builder.Services.AddSwaggerGen(c =>
     });
 });
 
+// Thêm dịch vụ SignalR
+builder.Services.AddSignalR();
+
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowAll", policy =>
     {
-        policy.AllowAnyOrigin()
+        policy.WithOrigins("http://localhost:3000") 
               .AllowAnyMethod()
-              .AllowAnyHeader();
+              .AllowAnyHeader()
+              .AllowCredentials(); 
     });
 });
 
-// Cấu hình JWT Authentication
 var jwtSettings = builder.Configuration.GetSection("Jwt");
 var secretKey = jwtSettings["SecretKey"] ?? throw new Exception("Thiếu Jwt:SecretKey trong cấu hình.");
 
@@ -87,6 +90,8 @@ builder.Services.AddScoped<DashboardStatisticService>();
 builder.Services.AddSingleton<WebSocketManagerService>();
 builder.Services.AddSingleton<CameraStreamService>();
 builder.Services.AddScoped<EmailService>();
+builder.Services.AddScoped<NotificationService>();
+
 
 var modelPath = Path.GetFullPath(Path.Combine(builder.Environment.ContentRootPath, "..", "..", "..", "AITooling", "yolo_model", "best.onnx"));
 if (!File.Exists(modelPath)) throw new FileNotFoundException($"Model file not found at: {modelPath}");
@@ -124,7 +129,6 @@ var webSocketOptions = new WebSocketOptions
 };
 app.UseWebSockets(webSocketOptions);
 
-// WebSocket endpoint cho camera streaming
 app.Map("/ws", async context =>
 {
     if (context.WebSockets.IsWebSocketRequest)
@@ -133,8 +137,6 @@ app.Map("/ws", async context =>
         {
             using var webSocket = await context.WebSockets.AcceptWebSocketAsync();
             var socketManager = context.RequestServices.GetRequiredService<WebSocketManagerService>();
-
-            // Add socket và xử lý connection
             await socketManager.HandleWebSocketAsync(webSocket);
         }
         catch (Exception ex)
@@ -152,5 +154,7 @@ app.Map("/ws", async context =>
 });
 
 app.MapControllers();
+
+app.MapHub<NotificationHub>("/notificationHub");
 
 app.Run();

@@ -15,7 +15,7 @@ namespace PPE_Detection_App.Api.Models
         [Required(ErrorMessage = "Họ và tên là bắt buộc")]
         public string FullName { get; set; } = string.Empty;
 
-        public string Role { get; set; } = "User"; // Mặc định là User
+        public string Role { get; set; } = "User"; 
         public byte Status { get; set; }
     }
 }

@@ -21,11 +21,10 @@ public class EmailService
             MailMessage mail = new MailMessage();
             mail.From = new MailAddress(senderEmail, senderName);
             mail.To.Add(toEmail);
-            mail.Subject = "⚠️ CẢNH BÁO: Phát hiện vi phạm an toàn lao động PPE";
+            mail.Subject = "CẢNH BÁO: Phát hiện vi phạm an toàn lao động PPE";
 
             mail.IsBodyHtml = true;
             
-            // Tạo Content-ID để nhúng ảnh
             string contentId = Guid.NewGuid().ToString();
             string htmlBody = $@"
                 <div style='font-family: Arial; padding: 20px;'>
@@ -38,7 +37,6 @@ public class EmailService
 
             AlternateView avHtml = AlternateView.CreateAlternateViewFromString(htmlBody, null, MediaTypeNames.Text.Html);
 
-            // Nhúng ảnh vào email
             if (System.IO.File.Exists(imagePath))
             {
                 LinkedResource inline = new LinkedResource(imagePath, MediaTypeNames.Image.Jpeg);

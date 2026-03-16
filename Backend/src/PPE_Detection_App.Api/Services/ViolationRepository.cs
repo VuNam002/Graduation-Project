@@ -49,7 +49,7 @@ namespace PPE_Detection_App.Api.Services
             if (toDate.HasValue)
             {
                 conditions.Add("vl.Detected_Time <= @ToDate");
-                parameters.Add("ToDate", toDate.Value.AddDays(1).AddSeconds(-1)); // Đến cuối ngày
+                parameters.Add("ToDate", toDate.Value.AddDays(1).AddSeconds(-1)); 
             }
 
             if (!string.IsNullOrEmpty(categoryId))
@@ -66,11 +66,9 @@ namespace PPE_Detection_App.Api.Services
 
             string whereClause = string.Join(" AND ", conditions);
 
-            // Đếm tổng số bản ghi
             string countSql = $"SELECT COUNT(*) FROM Violation_Log vl WHERE {whereClause}";
             int totalCount = await connection.ExecuteScalarAsync<int>(countSql, parameters);
 
-            // Phân trang
             parameters.Add("Offset", (page - 1) * pageSize);
             parameters.Add("PageSize", pageSize);
 

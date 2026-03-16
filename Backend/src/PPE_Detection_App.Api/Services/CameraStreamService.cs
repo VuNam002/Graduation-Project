@@ -96,7 +96,7 @@ namespace PPE_Detection_App.Api.Services
             {
                 if (!capture.Read(frame) || frame.Empty())
                 {
-                    await Task.Delay(10, cancellationToken); // Chờ một chút nếu không có frame
+                    await Task.Delay(10, cancellationToken);
                     continue;
                 }
 
@@ -157,10 +157,7 @@ namespace PPE_Detection_App.Api.Services
                 {
                     imageForProcessing?.Dispose();
                 }
-
-                // Bỏ delay ở cuối vòng lặp để xử lý frame nhanh nhất có thể.
-                // FPS sẽ được giới hạn bởi tốc độ xử lý và tốc độ của camera.
-                await Task.Yield(); // Cho phép các tác vụ khác chạy
+                await Task.Yield(); 
             }
         }
 
@@ -211,7 +208,6 @@ namespace PPE_Detection_App.Api.Services
             var box = detection.Box;
             var label = $"{detection.Label} ({detection.Confidence:P0})";
             
-            // Màu Xanh lá cho đối tượng bình thường, Đỏ cho vi phạm mới, Vàng cho vi phạm đang cooldown
             var color = isViolation ? (isOnCooldown ? Color.Yellow : Color.Red) : Color.LimeGreen;
             var rect = new RectangleF((float)box.Left, (float)box.Top, (float)box.Width, (float)box.Height);
 

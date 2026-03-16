@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Mvc;
 using PPE_Detection_App.Api.Services;
 using PPE_Detection_App.Api.Models;
 using SixLabors.ImageSharp;
+using PPE_Detection_App.Api.Models.DTO;
 
 namespace PPE_Detection_App.Api.Controllers
 {
@@ -12,12 +13,14 @@ namespace PPE_Detection_App.Api.Controllers
         private readonly YoloV8Processor _processor;
         private readonly DatabaseService _dbService;
         private readonly IWebHostEnvironment _env;
+        private readonly NotificationService _notificationService;
 
-        public DetectionController(YoloV8Processor processor, DatabaseService dbService, IWebHostEnvironment env)
+        public DetectionController(YoloV8Processor processor, DatabaseService dbService, IWebHostEnvironment env, NotificationService notificationService)
         {
             _processor = processor;
             _dbService = dbService;
             _env = env;
+            _notificationService = notificationService;
         }
 
         [HttpGet("health")]
@@ -59,7 +62,9 @@ namespace PPE_Detection_App.Api.Controllers
 
                     string fileName = $"violation_{DateTime.Now:yyyyMMdd_HHmmss}_{Guid.NewGuid().ToString().Substring(0, 4)}.jpg";
                     string fullPath = Path.Combine(uploadFolder, fileName);
-                    string dbImagePath = $"/violations/{fileName}";
+                    // Tạo URL tương đối có thể truy cập từ client
+                    string imageUrl = $"{Request.Scheme}://{Request.Host}/violations/{fileName}";
+
 
                     await image.SaveAsJpegAsync(fullPath);
                     
@@ -72,7 +77,7 @@ namespace PPE_Detection_App.Api.Controllers
                             var log = new ViolationLog
                             {
                                 Category_Id = issue.Label,
-                                Image_Path = dbImagePath,
+                                Image_Path = imageUrl,
                                 Confidence_Score = Math.Round(issue.Confidence, 3),
                                 Box_X = Math.Round(issue.Box.X, 2),
                                 Box_Y = Math.Round(issue.Box.Y, 2),
@@ -81,6 +86,16 @@ namespace PPE_Detection_App.Api.Controllers
                             };
                             await _dbService.InsertViolationLogAsync(log);
                             savedViolations.Add(issue.Label);
+
+                            // Gửi thông báo SignalR
+                            var notification = new ViolationNotificationDto
+                            {
+                                Message = $"Phát hiện vi phạm mới: {issue.Label}",
+                                ImageUrl = imageUrl,
+                                Timestamp = DateTime.UtcNow,
+                                ViolationType = issue.Label
+                            };
+                            await _notificationService.SendViolationNotificationAsync(notification);
                         }
                     }
                 }
