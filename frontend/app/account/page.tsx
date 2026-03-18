@@ -78,7 +78,7 @@ export default function AccountPage() {
       } else {
         toast.error(result.message || "Không thể cập nhật trạng thái")
       }
-    } catch (error) {
+    } catch{
       toast.error("Đã xảy ra lỗi khi kết nối đến server")
     } finally {
       setUpdating(null)
