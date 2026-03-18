@@ -1,4 +1,6 @@
-﻿using Microsoft.EntityFrameworkCore;
+﻿using Dapper;
+using Microsoft.Data.SqlClient;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.IdentityModel.Tokens;
 using PPE_Detection_App.Api.Models;
@@ -53,6 +55,39 @@ namespace PPE_Detection_App.Api.Services
             }
 
             return GenerateJwtToken(user);
+        }
+
+        public async Task<(bool Success, string Message)> UpdateAccountAsync(UpdateAdminUserDto updateAdminUserDto)
+        {
+            var user = await _databaseService.GetAdminUserByUsernameAsync(updateAdminUserDto.Username);
+            if (user == null)
+            {
+                return (false, "Tài khoản không tồn tại.");
+            }
+
+            if (!string.IsNullOrEmpty(updateAdminUserDto.PasswordHash))
+            {
+                updateAdminUserDto.PasswordHash = BCrypt.Net.BCrypt.HashPassword(updateAdminUserDto.PasswordHash);
+            }
+
+            await _databaseService.UpdateAccountAsync(updateAdminUserDto);
+            return (true, "Cập nhật tài khoản thành công.");
+        }
+        public async Task<(bool Success, string Message, AdminUserResponse? Data)> DetailAccountAsync(string username)
+        {
+            var user = await _databaseService.DetailAccountAsync(username);
+            if(user == null)
+            {
+                return (false, "Tai khoan khong ton tai",null);
+            }
+            var response = new AdminUserResponse
+            {
+                Username = user.Username,
+                FullName = user.Full_Name,
+                Role = user.Role,
+                Status = user.Status
+            };
+            return (true, "Lay thong tin tai khoan thanh cong", response);
         }
 
         private string GenerateJwtToken(AdminUser user)

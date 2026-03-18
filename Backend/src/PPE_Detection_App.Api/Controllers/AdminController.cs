@@ -83,6 +83,41 @@ namespace PPE_Detection_App.Api.Controllers
             });
         }
 
+        [HttpPatch("UpdateAccount")]
+        [Authorize(Roles = "Admin")]
+        public async Task<IActionResult> UpdateAccount([FromBody] UpdateAccountRequest request)
+        {
+            var updateDto = new UpdateAdminUserDto
+            {
+                Username = request.Username,
+                PasswordHash = request.PasswordHash,
+                FullName = request.FullName,
+                Role = request.Role
+            };
+
+            var result = await _authService.UpdateAccountAsync(updateDto);
+            if (!result.Success)
+            {
+                return BadRequest(result.Message);
+            }
+            return Ok(new
+            {
+                success = true,
+                message = result.Message
+            });
+        }
+
+        [HttpGet("Detai/{username}")]
+        public async Task<IActionResult> DetailAccount(string username)
+        {
+            var result = await _authService.DetailAccountAsync(username);
+            if(!result.Success)
+            {
+                return NotFound(new { message = result.Message });
+            }
+            return Ok(new { message = result.Message, data = result.Data });
+        }
+
         [AllowAnonymous]
         [HttpGet("hash-password/{password}")]
         public IActionResult HashPassword(string password)

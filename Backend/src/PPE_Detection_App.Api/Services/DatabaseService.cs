@@ -1,6 +1,8 @@
 ﻿using Dapper;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.Data.SqlClient;
 using PPE_Detection_App.Api.Models;
+using PPE_Detection_App.Api.Models.DTO;
 
 namespace PPE_Detection_App.Api.Services
 {
@@ -52,7 +54,7 @@ namespace PPE_Detection_App.Api.Services
             if (toDate.HasValue)
             {
                 conditions.Add("vl.Detected_Time <= @ToDate");
-                parameters.Add("ToDate", toDate.Value.AddDays(1).AddSeconds(-1)); // End of day
+                parameters.Add("ToDate", toDate.Value.AddDays(1).AddSeconds(-1)); 
             }
 
             if (!string.IsNullOrEmpty(categoryId))
@@ -69,11 +71,9 @@ namespace PPE_Detection_App.Api.Services
 
             string whereClause = string.Join(" AND ", conditions);
 
-            // Count total records
             string countSql = $"SELECT COUNT(*) FROM Violation_Log vl WHERE {whereClause}";
             int totalCount = await connection.ExecuteScalarAsync<int>(countSql, parameters);
 
-            // Get paginated data với JOIN để lấy Display_Name
             parameters.Add("Offset", (page - 1) * pageSize);
             parameters.Add("PageSize", pageSize);
 
@@ -426,6 +426,53 @@ namespace PPE_Detection_App.Api.Services
                 Username = username,
                 Status = status  
             });
+        }
+
+        public async Task<AdminUser?> DetailAccountAsync(string username)
+        {
+            using var connection = new SqlConnection(_connectionString);
+            string sql = @"
+                SELECT Username, Password_Hash, Full_Name, Role, Status, Is_Deleted
+                FROM Admin_User
+                WHERE Username = @Username
+                AND Is_Deleted = 0";
+            return await connection.QueryFirstOrDefaultAsync<AdminUser>(sql, new { Username = username });
+        }
+
+        public async Task UpdateAccountAsync(UpdateAdminUserDto dto)
+        {
+            using var connection = new SqlConnection(_connectionString);
+            var setClauses = new List<string>();
+            var parameters = new DynamicParameters();
+            parameters.Add("Username", dto.Username);
+
+            if (!string.IsNullOrEmpty(dto.PasswordHash))
+            {
+                setClauses.Add("Password_Hash = @PasswordHash");
+                parameters.Add("PasswordHash", dto.PasswordHash);
+            }
+
+            if (!string.IsNullOrEmpty(dto.FullName))
+            {
+                setClauses.Add("Full_Name = @FullName");
+                parameters.Add("FullName", dto.FullName);
+            }
+
+            if (!string.IsNullOrEmpty(dto.Role))
+            {
+                setClauses.Add("Role = @Role");
+                parameters.Add("Role", dto.Role);
+            }
+
+            if (!setClauses.Any()) return; 
+
+            string sql = $@"
+                UPDATE Admin_User
+                SET {string.Join(", ", setClauses)}
+                WHERE Username = @Username
+                AND Is_Deleted = 0";
+
+            await connection.ExecuteAsync(sql, parameters);
         }
 
         public async Task UpdateUserPasswordHashAsync(string username, string passwordHash)
