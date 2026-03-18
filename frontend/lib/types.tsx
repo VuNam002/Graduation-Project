@@ -217,6 +217,8 @@ export interface DashboardWidgetsResponse {
 export interface Account {
   username: string;
   fullName: string;
+  email?: string;
+  passwordHash?: string;
   role: string;
   status: number;
 }

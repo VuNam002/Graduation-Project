@@ -4,9 +4,11 @@ import * as React from "react"
 import {
   IconCheck,
   IconX,
-  IconTrash   
+  IconTrash,
+  IconPencil
 } from "@tabler/icons-react"
 import { toast } from "sonner"
+import Link from "next/link"
 
 import { AppSidebar } from "@/components/app-sidebar"
 import { SiteHeader } from "@/components/site-header"
@@ -14,12 +16,7 @@ import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
+import { Card, CardContent, CardDescription, CardHeader, CardTitle,
 } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
 import {
@@ -30,6 +27,14 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
+import {
+  Pagination,
+  PaginationContent,
+  PaginationItem,
+  PaginationPrevious,
+  PaginationNext,
+  PaginationLink
+} from "@/components/ui/pagination";
 import { fetchAccounts, fetchUpdateStatusAccount, fetchDeleteAccount} from "@/lib/api"
 import { Account } from "@/lib/types"
 import { useAuth } from "@/lib/auth"
@@ -40,6 +45,8 @@ export default function AccountPage() {
   const [updating, setUpdating] = React.useState<string | null>(null)
   const { user } = useAuth()
   const isAdmin = user?.role === "Admin"
+  const [currentPage, setCurrentPage] = React.useState(1);
+  const accountsPerPage = 10;
 
   React.useEffect(() => {
     const loadData = async () => {
@@ -95,6 +102,11 @@ export default function AccountPage() {
     }
   }
 
+  const indexOfLastAccount = currentPage * accountsPerPage;
+  const indexOfFirstAccount = indexOfLastAccount - accountsPerPage;
+  const currentAccounts = accounts.slice(indexOfFirstAccount, indexOfLastAccount);
+  const totalPages = Math.ceil(accounts.length / accountsPerPage);
+
   return (
     <SidebarProvider
       style={
@@ -142,8 +154,8 @@ export default function AccountPage() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {accounts.length > 0 ? (
-                      accounts.map((account) => (
+                    {currentAccounts.length > 0 ? (
+                      currentAccounts.map((account) => (
                         <TableRow key={account.username}>
                           <TableCell className="font-medium text-base py-4">{account.username}</TableCell>
                           <TableCell className="text-base py-4">{account.fullName}</TableCell>
@@ -168,26 +180,72 @@ export default function AccountPage() {
                           </TableCell>
                           <TableCell className="py-4">
                             {isAdmin && (
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                onClick={() => handleDeleteAccount(account.username)}
-                              >
-                                <IconTrash className="size-5 text-red-500" />
-                              </Button>
+                              <>
+                                <Link href={`/account/update/${account.username}`}>
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                  >
+                                    <IconPencil className="size-5 text-blue-500" />
+                                  </Button>
+                                </Link>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  onClick={() => handleDeleteAccount(account.username)}
+                                >
+                                  <IconTrash className="size-5 text-red-500" />
+                                </Button>
+                              </>
                             )}
                           </TableCell>
                         </TableRow>
                       ))
                     ) : (
                       <TableRow>
-                        <TableCell colSpan={4} className="h-24 text-center">
+                        <TableCell colSpan={5} className="h-24 text-center">
                           Không có dữ liệu.
                         </TableCell>
                       </TableRow>
                     )}
                   </TableBody>
                 </Table>
+                <Pagination>
+                  <PaginationContent>
+                    <PaginationItem>
+                      <PaginationPrevious
+                        href="#"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          setCurrentPage((prev) => Math.max(prev - 1, 1));
+                        }}
+                      />
+                    </PaginationItem>
+                    {Array.from({ length: totalPages }, (_, index) => (
+                      <PaginationItem key={index}>
+                        <PaginationLink
+                          href="#"
+                          isActive={index + 1 === currentPage}
+                          onClick={(e) => {
+                            e.preventDefault();
+                            setCurrentPage(index + 1);
+                          }}
+                        >
+                          {index + 1}
+                        </PaginationLink>
+                      </PaginationItem>
+                    ))}
+                    <PaginationItem>
+                      <PaginationNext
+                        href="#"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          setCurrentPage((prev) => Math.min(prev + 1, totalPages));
+                        }}
+                      />
+                    </PaginationItem>
+                  </PaginationContent>
+                </Pagination>
               </CardContent>
             </Card>
           )}
