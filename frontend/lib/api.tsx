@@ -316,6 +316,22 @@ export async function fetchCategories(): Promise<ViolationCategory[]> {
   });
 }
 
+export async function fetchDetailAccount(username: string): Promise<Account> {
+  return api<Account>(`${API_URL}/Admin/Detail/${username}`, {
+    method: 'GET',
+    headers: getAuthHeaders(),
+  })
+}
+
+export async function fetchUpdateAccount(account: Account): Promise<{ success: boolean; message?: string }> {
+  return api<{ success: boolean; message?: string }>(`${API_URL}/Admin/UpdateAccount`, {
+    method: 'PATCH',
+    headers: getAuthHeaders(),
+    body: JSON.stringify(account),
+  });
+}
+
+
 export async function fetchDetailViolation(id: number): Promise<ViolationLog> {
   const response = await api<{ success: boolean; data: ViolationLog }>(`${API_URL}/Violation/${id}`, {
     method: 'GET',

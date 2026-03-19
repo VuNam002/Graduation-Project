@@ -107,7 +107,7 @@ namespace PPE_Detection_App.Api.Controllers
             });
         }
 
-        [HttpGet("Detai/{username}")]
+        [HttpGet("Detail/{username}")]
         public async Task<IActionResult> DetailAccount(string username)
         {
             var result = await _authService.DetailAccountAsync(username);
