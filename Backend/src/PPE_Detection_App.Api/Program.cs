@@ -1,4 +1,4 @@
-﻿using Microsoft.AspNetCore.Authentication.JwtBearer;
+﻿﻿using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.ML.OnnxRuntime;
 using Microsoft.OpenApi.Models;
@@ -87,6 +87,8 @@ builder.Services.AddScoped<DashboardStatisticService>();
 builder.Services.AddSingleton<WebSocketManagerService>();
 builder.Services.AddSingleton<CameraStreamService>();
 builder.Services.AddScoped<EmailService>();
+builder.Services.AddSingleton<FaceRecognitionService>(); 
+builder.Services.AddSingleton<FaceMatcherService>();
 
 var modelPath = Path.GetFullPath(Path.Combine(builder.Environment.ContentRootPath, "..", "..", "..", "AITooling", "yolo_model", "best.onnx"));
 if (!File.Exists(modelPath)) throw new FileNotFoundException($"Model file not found at: {modelPath}");

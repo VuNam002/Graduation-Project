@@ -1,4 +1,4 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿﻿﻿﻿using Microsoft.AspNetCore.Mvc;
 using PPE_Detection_App.Api.Services;
 using PPE_Detection_App.Api.Models;
 
@@ -55,6 +55,9 @@ namespace PPE_Detection_App.Api.Controllers
                         imagePath = v.Image_Path,
                         confidence = Math.Round(v.Confidence_Score * 100, 2),
                         detectedTime = v.Detected_Time,
+                        employeeId = v.Employee_Id,
+                        employeeName = v.Employee_Name,
+                        employeeCode = v.Employee_Code,
                         box = new
                         {
                             x = Math.Round(v.Box_X, 2),
@@ -137,6 +140,9 @@ namespace PPE_Detection_App.Api.Controllers
                         imagePath = violation.Image_Path,
                         confidence = Math.Round(violation.Confidence_Score * 100, 2),
                         detectedTime = violation.Detected_Time,
+                        employeeId = violation.Employee_Id,
+                        employeeName = violation.Employee_Name,
+                        employeeCode = violation.Employee_Code,
                         box = new
                         {
                             x = Math.Round(violation.Box_X, 2),

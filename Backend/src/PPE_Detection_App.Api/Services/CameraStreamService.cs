@@ -8,6 +8,7 @@ using SixLabors.ImageSharp.Drawing.Processing;
 using SixLabors.Fonts;
 using SixLabors.ImageSharp.Formats.Jpeg;
 using System.Runtime.InteropServices;
+using System.Text.Json;
 
 namespace PPE_Detection_App.Api.Services
 {
@@ -96,7 +97,7 @@ namespace PPE_Detection_App.Api.Services
             {
                 if (!capture.Read(frame) || frame.Empty())
                 {
-                    await Task.Delay(10, cancellationToken); // Chờ một chút nếu không có frame
+                    await Task.Delay(10, cancellationToken); 
                     continue;
                 }
 
@@ -111,6 +112,9 @@ namespace PPE_Detection_App.Api.Services
                     var violationRepo = scope.ServiceProvider.GetRequiredService<ViolationRepository>();
                     var emailService = scope.ServiceProvider.GetRequiredService<EmailService>();
                     var configuration = scope.ServiceProvider.GetRequiredService<IConfiguration>();
+                    var faceService = scope.ServiceProvider.GetRequiredService<FaceRecognitionService>();
+                    var dbService = scope.ServiceProvider.GetRequiredService<DatabaseService>();
+                    var faceMatcherService = scope.ServiceProvider.GetRequiredService<FaceMatcherService>();
 
                     var detections = yoloProcessor.ProcessImage(imageForProcessing);
                     var allViolationDetections = detections.Where(d => _violationLabels.Contains(d.Label)).ToList();
@@ -140,7 +144,7 @@ namespace PPE_Detection_App.Api.Services
 
                     if (eligibleDetections.Any())
                     {
-                        await HandleViolations(eligibleDetections, imageForProcessing, violationRepo, emailService, configuration);
+                        await HandleViolations(eligibleDetections, detections.ToList(), imageForProcessing, violationRepo, emailService, configuration, faceService, dbService, faceMatcherService);
                     }
 
                     if (_webSocketManager.GetConnectionCount() > 0)
@@ -231,9 +235,9 @@ namespace PPE_Detection_App.Api.Services
             });
         }
 
-        private async Task HandleViolations(List<DetectionResult> detections, Image<Rgba32> image, ViolationRepository repo, EmailService emailService, IConfiguration config)
+        private async Task HandleViolations(List<DetectionResult> violations, List<DetectionResult> allDetections, Image<Rgba32> image, ViolationRepository repo, EmailService emailService, IConfiguration config, FaceRecognitionService faceService, DatabaseService dbService, FaceMatcherService faceMatcherService)
         {
-            if (!detections.Any()) return;
+            if (!violations.Any()) return;
 
             var timestamp = DateTime.Now.ToString("yyyyMMdd_HHmmss");
             var randomSuffix = Path.GetRandomFileName().Split('.')[0].Substring(0, 4);
@@ -243,8 +247,82 @@ namespace PPE_Detection_App.Api.Services
 
             await image.SaveAsJpegAsync(imagePath);
 
-            foreach (var detection in detections)
+            foreach (var detection in violations)
             {
+                int? matchedEmployeeId = null;
+                try
+                {
+                    // 1. Tìm BoundingBox của 'Person' chứa lỗi này (dựa vào tâm của lỗi)
+                    var centerX = detection.Box.Left + detection.Box.Width / 2;
+                    var centerY = detection.Box.Top + detection.Box.Height / 2;
+
+                    bool hasFaceBox = false;
+                    BoundingBox targetFaceBox = detection.Box; // Khởi tạo giá trị mặc định
+
+                    foreach (var p in allDetections)
+                    {
+                        if (p.Label == "Person" && 
+                            centerX >= p.Box.Left && centerX <= p.Box.Right && 
+                            centerY >= p.Box.Top && centerY <= p.Box.Bottom)
+                        {
+                            // 2. Ước lượng vùng khuôn mặt: Lấy khoảng 25% phía trên của Person box
+                            float headWidth = p.Box.Width * 0.4f;  // Chiều rộng đầu khoảng 40% chiều rộng người
+                            float headHeight = p.Box.Height * 0.25f; // Chiều cao đầu khoảng 25% chiều cao người
+                            float headX = p.Box.Left + (p.Box.Width - headWidth) / 2; 
+                            float headY = p.Box.Top; 
+                            
+                            targetFaceBox = new BoundingBox(headX, headY, headWidth, headHeight);
+                            hasFaceBox = true;
+                            _logger.LogInformation($"[FaceRec] Tìm thấy 'Person' chứa lỗi {detection.Label}, đang cắt vùng đầu...");
+                            break; // Tìm thấy Person chứa lỗi thì dừng loop luôn
+                        }
+                    }
+
+                    if (!hasFaceBox && (detection.Label == "NO-Hardhat" || detection.Label == "NO-Mask" || detection.Label == "NO-Goggles"))
+                    {
+                        // Lỗi ở vùng đầu (không tìm thấy dáng người), lấy luôn box của lỗi làm Face Box
+                        targetFaceBox = detection.Box;
+                        hasFaceBox = true;
+                        _logger.LogInformation($"[FaceRec] Không thấy 'Person', lấy box của lỗi {detection.Label} làm vùng khuôn mặt.");
+                    }
+
+                    // Nếu có vùng nghi ngờ là khuôn mặt thì mới cắt để chạy nhận diện
+                    if (hasFaceBox)
+                    {
+                        int x = (int)Math.Max(0, targetFaceBox.Left);
+                        int y = (int)Math.Max(0, targetFaceBox.Top);
+                        int width = (int)Math.Min(image.Width - x, targetFaceBox.Width);
+                        int height = (int)Math.Min(image.Height - y, targetFaceBox.Height);
+
+                        if (width > 0 && height > 0)
+                        {
+                            var cropRect = new Rectangle(x, y, width, height);
+                            using var cropImage = image.Clone(ctx => ctx.Crop(cropRect));
+                            
+                            // --- LƯU ẢNH CROP ĐỂ DEBUG XEM AI CÓ NHÌN THẤY MẶT KHÔNG ---
+                            var debugCropPath = Path.Combine(_outputDirectory, $"debug_face_{timestamp}_{randomSuffix}.jpg");
+                            await cropImage.SaveAsJpegAsync(debugCropPath);
+                            _logger.LogInformation($"[FaceRec] Đã lưu ảnh khuôn mặt trích xuất tại: /violations/debug_face_{timestamp}_{randomSuffix}.jpg");
+
+                            using var rgbCrop = cropImage.CloneAs<Rgb24>();
+                            
+                            // Trích xuất vector đặc trưng
+                            var embedding = faceService.GetFaceEmbedding(rgbCrop);
+                            
+                            // Gọi "Tổ đội trưởng" FaceMatcherService để xác định nhân viên
+                            matchedEmployeeId = await faceMatcherService.IdentifyEmployeeAsync(embedding);
+                        }
+                    }
+                    else 
+                    {
+                        _logger.LogWarning($"[FaceRec] Không xác định được vùng đầu cho lỗi {detection.Label}");
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning($"Lỗi trích xuất khuôn mặt: {ex.Message}");
+                }
+
                 var log = new ViolationLog
                 {
                     Category_Id = detection.Label,
@@ -255,17 +333,18 @@ namespace PPE_Detection_App.Api.Services
                     Box_W = detection.Box.Width,
                     Box_H = detection.Box.Height,
                     Detected_Time = DateTime.Now,
-                    Status = 0
+                    Status = 0,
+                    Employee_Id = matchedEmployeeId // <--- Lưu ID thực tế bắt được
                 };
                 await repo.InsertViolationLogAsync(log);
             }
 
-            _logger.LogInformation($"{detections.Count} new violations logged. Image saved to {imagePath}");
+            _logger.LogInformation($"{violations.Count} new violations logged. Image saved to {imagePath}");
 
             try 
             {
                 string adminEmail = config["EmailSettings:AdminEmail"] ?? "vun197276@gmail.com"; 
-                emailService.SendViolationEmail(adminEmail, imagePath, $"Camera Detection (ID: {detections.First().Label})");
+                emailService.SendViolationEmail(adminEmail, imagePath, $"Camera Detection (ID: {violations.First().Label})");
             }
             catch (Exception ex)
             {

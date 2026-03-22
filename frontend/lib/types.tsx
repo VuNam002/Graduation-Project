@@ -217,6 +217,8 @@ export interface DashboardWidgetsResponse {
 export interface Account {
   username: string;
   fullName: string;
+  email?: string;
+  passwordHash?: string;
   role: string;
   status: number;
 }
@@ -255,6 +257,9 @@ export interface ViolationLog {
   }
   status: number       
   statusText?: string
+  employeeId?: number | null
+  employeeName?: string
+  employeeCode?: string
   isDeleted?: boolean
 }
 

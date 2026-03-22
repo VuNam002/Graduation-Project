@@ -2,6 +2,9 @@ using Microsoft.AspNetCore.Mvc;
 using PPE_Detection_App.Api.Services;
 using PPE_Detection_App.Api.Models;
 using SixLabors.ImageSharp;
+using SixLabors.ImageSharp.PixelFormats;
+using SixLabors.ImageSharp.Processing;
+using System.Text.Json;
 
 namespace PPE_Detection_App.Api.Controllers
 {
@@ -12,12 +15,16 @@ namespace PPE_Detection_App.Api.Controllers
         private readonly YoloV8Processor _processor;
         private readonly DatabaseService _dbService;
         private readonly IWebHostEnvironment _env;
+        private readonly FaceRecognitionService _faceService;
+        private readonly FaceMatcherService _faceMatcherService;
 
-        public DetectionController(YoloV8Processor processor, DatabaseService dbService, IWebHostEnvironment env)
+        public DetectionController(YoloV8Processor processor, DatabaseService dbService, IWebHostEnvironment env, FaceRecognitionService faceService, FaceMatcherService faceMatcherService)
         {
             _processor = processor;
             _dbService = dbService;
             _env = env;
+            _faceService = faceService;
+            _faceMatcherService = faceMatcherService;
         }
 
         [HttpGet("health")]
@@ -64,24 +71,49 @@ namespace PPE_Detection_App.Api.Controllers
                     await image.SaveAsJpegAsync(fullPath);
                     
                     var validCategoryIds = new HashSet<string>(validCategories.Select(c => c.Id), StringComparer.OrdinalIgnoreCase);
-
                     foreach (var issue in allViolations)
                     {
                         if (validCategoryIds.Contains(issue.Label))
                         {
+                            int? matchedEmployeeId = null;
+                            try
+                            {
+                                int x = (int)Math.Max(0, issue.Box.X);
+                                int y = (int)Math.Max(0, issue.Box.Y);
+                                int width = (int)Math.Min(image.Width - x, issue.Box.Width);
+                                int height = (int)Math.Min(image.Height - y, issue.Box.Height);
+
+                                if (width > 0 && height > 0)
+                                {
+                                    var cropRect = new Rectangle(x, y, width, height);
+                                    using var cropImage = image.Clone(ctx => ctx.Crop(cropRect));
+                                    using var rgbCrop = cropImage.CloneAs<Rgb24>();
+                                    var embedding = _faceService.GetFaceEmbedding(rgbCrop);
+
+                                    // Giao việc so sánh cho FaceMatcherService
+                                    matchedEmployeeId = await _faceMatcherService.IdentifyEmployeeAsync(embedding);
+                                }
+                            }
+                            catch { /* Bỏ qua lỗi ảnh/cắt lỗi */ }
+
                             var log = new ViolationLog
                             {
                                 Category_Id = issue.Label,
                                 Image_Path = dbImagePath,
-                                Confidence_Score = Math.Round(issue.Confidence, 3),
-                                Box_X = Math.Round(issue.Box.X, 2),
-                                Box_Y = Math.Round(issue.Box.Y, 2),
-                                Box_W = Math.Round(issue.Box.Width, 2),
-                                Box_H = Math.Round(issue.Box.Height, 2)
+                                Confidence_Score = issue.Confidence,
+                                Box_X = issue.Box.X,
+                                Box_Y = issue.Box.Y,
+                                Box_W = issue.Box.Width,
+                                Box_H = issue.Box.Height,
+                                Detected_Time = DateTime.Now,
+                                Status = 0,
+                                Employee_Id = matchedEmployeeId
                             };
+
                             await _dbService.InsertViolationLogAsync(log);
                             savedViolations.Add(issue.Label);
                         }
+
                     }
                 }
 
