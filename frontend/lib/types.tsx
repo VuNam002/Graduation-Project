@@ -262,6 +262,15 @@ export interface ViolationLog {
   employeeCode?: string
   isDeleted?: boolean
 }
+export interface Employee {
+  employee_Id: number
+  employee_Code: string
+  full_Name: string
+  department: string
+  face_Vector: string
+  created_At: string
+  is_Deleted: boolean
+}
 
 export interface ViolationCategory {
   id: string
@@ -280,6 +289,14 @@ export interface PaginatedViolationsResponse {
     totalRecords: number
     totalPages: number
   }
+}
+
+export interface fetchGetAllEmployeeResponse {
+  employee_Id: number
+  employee_Code: string
+  full_Name: string
+  department: string
+  Face_Vector: string
 }
 
 

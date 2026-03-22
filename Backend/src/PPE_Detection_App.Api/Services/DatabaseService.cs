@@ -1,6 +1,7 @@
 ﻿﻿﻿﻿using Dapper;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.Data.SqlClient;
+using OpenCvSharp;
 using PPE_Detection_App.Api.Models;
 using PPE_Detection_App.Api.Models.DTO;
 
@@ -494,13 +495,72 @@ namespace PPE_Detection_App.Api.Services
                 VALUES (@Employee_Code, @Full_Name, @Department, @Face_Vector)";
             await connection.ExecuteAsync(sql, employee);
         }
+        public async Task<Employee?> GetEmployeeByCodeAsync(string employeeCode)
+        {
+            try
+            {
+                using var connection = new SqlConnection(_connectionString);
+
+                string sql = @"SELECT * 
+                       FROM Employee 
+                       WHERE Employee_Code = @Employee_Code 
+                       AND Is_Deleted = 0";
+
+                return await connection.QueryFirstOrDefaultAsync<Employee>(
+                    sql,
+                    new { Employee_Code = employeeCode }
+                );
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine("Lỗi khi lấy employee: " + ex.Message);
+                return null; 
+            }
+        }
+        public async Task<Employee?> GetEmployeeByIdAsync(int employeeId)
+        {
+            try
+            {
+                using var connection = new SqlConnection(_connectionString);
+                string sql = "SELECT * FROM Employee WHERE Employee_Id = @Employee_Id AND Is_Deleted = 0";
+                return await connection.QueryFirstOrDefaultAsync<Employee>(sql, new { Employee_Id = employeeId });
+            } catch (Exception ex)
+            {
+                Console.WriteLine("Lỗi khi lấy employee: " + ex.Message);
+                return null;    
+            }
+            
+        }
 
         public async Task<List<Employee>> GetAllEmployeesAsync()
         {
-            using var connection = new SqlConnection(_connectionString);
-            string sql = "SELECT * FROM Employee";
-            var result = await connection.QueryAsync<Employee>(sql);
-            return result.ToList();
+            try
+            {
+                using var connection = new SqlConnection(_connectionString);
+                string sql = "SELECT * FROM Employee WHERE Is_Deleted = 0";
+                var result = await connection.QueryAsync<Employee>(sql);
+                return result.ToList();
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine("Lỗi khi lấy danh sách employee: " + ex.Message);
+                return new List<Employee>();
+            }
+        }
+        public async Task<bool> DeleteEmployeeAsync(int employeeId)
+        {
+            try
+            {
+                using var connection = new SqlConnection(_connectionString);
+                string sql = "UPDATE Employee SET Is_Deleted = 1 WHERE Employee_Id = @Employee_Id";
+                int rowsAffected = await connection.ExecuteAsync(sql, new { Employee_Id = employeeId });
+                return rowsAffected > 0;
+            } catch (Exception ex)
+            {
+                Console.WriteLine("Loi khi xoa employee: " + ex.Message);
+                return false;
+            }
+
         }
     }
 }

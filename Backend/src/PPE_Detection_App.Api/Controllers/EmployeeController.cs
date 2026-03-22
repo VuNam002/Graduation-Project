@@ -27,7 +27,47 @@ namespace PPE_Detection_App.Api.Controllers
             _databaseService = databaseService;
             _env = env;
         }
-
+        [HttpGet]
+        public async Task<IActionResult> GetAllEmployees()
+        {
+            try
+            {
+                var employees = await _databaseService.GetAllEmployeesAsync();
+                return Ok(employees);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, $"Loi he thong: {ex.Message}");
+            }
+        }
+        [HttpGet("{Employee_Id}")]
+        public async Task<IActionResult> GetEmployeeById(int Employee_Id)
+        {
+            try
+            {
+                var employee = await _databaseService.GetEmployeeByIdAsync(Employee_Id);
+                if (employee == null) return NotFound($"Khong tim thay nhan vien voi ID {Employee_Id}");
+                return Ok(employee);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, $"Loi he thong: {ex.Message}");
+            }
+        }
+        [HttpDelete("{Employee_Id}")]
+        public async Task<IActionResult> DeleteEmployee(int Employee_Id)
+        {
+            try
+            {
+                var success = await _databaseService.DeleteEmployeeAsync(Employee_Id);
+                if (!success) return NotFound($"Khong tim thay nhan vien voi ID {Employee_Id}");
+                return Ok($"Da xoa nhan vien voi ID {Employee_Id} thanh cong");
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, $"Loi he thong: {ex.Message}");
+            }
+        }
         /// <summary>
         /// API Đăng ký khuôn mặt nhân viên (eKYC)
         /// </summary>
@@ -35,7 +75,7 @@ namespace PPE_Detection_App.Api.Controllers
         public async Task<IActionResult> EnrollEmployee([FromForm] string employeeCode, [FromForm] string fullName, [FromForm] string department, [FromForm] List<IFormFile> faceImages)
         {
             if (faceImages == null || !faceImages.Any())
-                return BadRequest("Vui lòng tải lên ít nhất 1 ảnh khuôn mặt (khuyến nghị 3-5 ảnh ở các góc khác nhau)!");
+                return BadRequest("Vui long tai it nhat 1 anh (Khuyen nghi 3 den 5 anh)!");
 
             try
             {
@@ -61,9 +101,8 @@ namespace PPE_Detection_App.Api.Controllers
                 }
 
                 if (!faceVectors.Any())
-                    return BadRequest("Không thể trích xuất đặc trưng từ các ảnh này. Vui lòng thử ảnh rõ mặt hơn.");
+                    return BadRequest("Khong the trich xuat anh, vui long de ro mat hon");
 
-                // Lưu danh sách vector thành JSON (Mảng 2 chiều: float[][])
                 string vectorJsonString = JsonSerializer.Serialize(faceVectors);
 
                 var newEmployee = new Employee
@@ -78,7 +117,7 @@ namespace PPE_Detection_App.Api.Controllers
 
                 return Ok(new
                 {
-                    Message = "Đăng ký khuôn mặt đa góc độ thành công",
+                    Message = "Dang ky khuon mat da goc do thanh cong",
                     EmployeeName = fullName,
                     TotalAnglesEnrolled = faceVectors.Count
                 });

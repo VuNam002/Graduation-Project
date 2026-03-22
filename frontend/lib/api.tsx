@@ -1,10 +1,10 @@
-import { LoginResponse, AccountDetail, DashboardResponse, RecentViolationsResponse, DashboardMonthlyResponse, DashboardWidgetsResponse, Account, CameraResponse, PaginatedViolationsResponse, ViolationCategory, ViolationLog } from './types';
+import { LoginResponse, AccountDetail, fetchGetAllEmployeeResponse, DashboardResponse, RecentViolationsResponse, DashboardMonthlyResponse, DashboardWidgetsResponse, Account, CameraResponse, PaginatedViolationsResponse, ViolationCategory, ViolationLog } from './types';
 
 const API_URL = 'https://localhost:7215/api';
 async function api<T>(url: string, options: RequestInit = {}): Promise<T> {
   try {     
     const headers: Record<string, string> = { ...(options.headers as any) };
-    if (options.body) {
+    if (options.body && !(options.body instanceof FormData)) {
       headers['Content-Type'] = 'application/json';
     }
 
@@ -27,8 +27,13 @@ async function api<T>(url: string, options: RequestInit = {}): Promise<T> {
     }
 
     const text = await response.text();
-    return text ? (JSON.parse(text) as T) : ({} as T);
-
+    if (!text) return {} as T;
+    try {
+      return JSON.parse(text) as T;
+    } catch {
+      // Xử lý trường hợp backend trả về plain text (không phải JSON)
+      return { success: true, message: text } as unknown as T;
+    }
   } catch (error) {
     if (error instanceof TypeError && error.message.includes('fetch')) {
       throw new Error('Không thể kết nối đến server. Vui lòng kiểm tra kết nối mạng.');
@@ -331,13 +336,42 @@ export async function fetchUpdateAccount(account: Account): Promise<{ success: b
   });
 }
 
-
 export async function fetchDetailViolation(id: number): Promise<ViolationLog> {
   const response = await api<{ success: boolean; data: ViolationLog }>(`${API_URL}/Violation/${id}`, {
     method: 'GET',
     headers: getAuthHeaders(),
   });
   return response.data || ({} as ViolationLog);
+}
+
+export async function fetchGetDetailEmployee(employee_Id: number): Promise<fetchGetAllEmployeeResponse> {
+  return api<fetchGetAllEmployeeResponse>(`${API_URL}/Employee/${employee_Id}`, {
+    method: 'GET',
+    headers: getAuthHeaders(),
+  });
+}
+
+export async function fetchGetAllEmployee(): Promise<fetchGetAllEmployeeResponse[]> {
+  return api<fetchGetAllEmployeeResponse[]>(`${API_URL}/Employee`, {
+    method: 'GET',
+    headers: getAuthHeaders(),
+  });
+  
+}
+
+export async function fetchDeleteEmployee(employee_Id: number): Promise<{ success: boolean; message?: string }> {
+  return api<{ success: boolean; message?: string }>(`${API_URL}/Employee/${employee_Id}`, {
+    method: 'DELETE',
+    headers: getAuthHeaders(),
+  });
+}
+
+export async function fetchCreateEmployee(formData: FormData): Promise<{ success?: boolean; message?: string; totalAnglesEnrolled?: number; employeeName?: string }> {
+  return api<{ success?: boolean; message?: string; totalAnglesEnrolled?: number; employeeName?: string }>(`${API_URL}/Employee/enroll`, {
+    method: 'POST',
+    headers: getAuthHeaders(),
+    body: formData,
+  });
 }
 
 export function getBackendUrl(): string {

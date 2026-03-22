@@ -7,6 +7,7 @@ import {
   IconListDetails,
   IconCashPlus ,
   IconXboxX ,
+  IconLayoutDashboard 
 } from "@tabler/icons-react"
 import Link from "next/link"
 
@@ -55,6 +56,22 @@ const data = {
         {
         title: "Danh sách vi phạm",
         url: "/violation"
+        }
+      ]
+    },
+    {
+      title: "Nhân viên",
+      url: "#",
+      icon: IconLayoutDashboard,
+      isActive: false,
+      items: [
+        {
+        title: "Danh sách nhân viên",
+        url: "/employee"
+        },
+        {
+        title: "Thêm nhân viên",
+        url: "/employee/created"
         }
       ]
     }
