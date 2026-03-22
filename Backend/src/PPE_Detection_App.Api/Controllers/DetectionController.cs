@@ -106,7 +106,8 @@ namespace PPE_Detection_App.Api.Controllers
                                     using var cropImage = image.Clone(ctx => ctx.Crop(cropRect));
                                     using var rgbCrop = cropImage.CloneAs<Rgb24>();
                                     var embedding = _faceService.GetFaceEmbedding(rgbCrop);
-                                    matchedEmployeeId = await _faceMatcherService.IdentifyEmployeeAsync(embedding);
+                                    var matchResult = await _faceMatcherService.IdentifyEmployeeAsync(embedding);
+                                    matchedEmployeeId = matchResult.Id;
                                 }
                             }
                             catch

@@ -27,14 +27,14 @@ namespace PPE_Detection_App.Api.Services
         /// <summary>
         /// Tìm kiếm xem khuôn mặt vi phạm thuộc về nhân viên nào trong CSDL
         /// </summary>
-        public async Task<int?> IdentifyEmployeeAsync(float[] unknownFaceVector)
+        public async Task<(int? Id, string? Name)> IdentifyEmployeeAsync(float[] unknownFaceVector)
         {
             if (unknownFaceVector == null || unknownFaceVector.Length == 0)
-                return null;
+                return (null, null);
 
             var allEmployees = await _databaseService.GetAllEmployeesAsync();
             if (allEmployees == null || !allEmployees.Any())
-                return null;
+                return (null, null);
 
             int? bestMatchEmployeeId = null;
             double highestSimilarity = -1.0;
@@ -83,11 +83,11 @@ namespace PPE_Detection_App.Api.Services
             if (highestSimilarity >= MatchThreshold)
             {
                 _logger.LogInformation($"[FaceMatch] Chot nguoi vi pham {bestMatchName} (ID: {bestMatchEmployeeId}) - Max Sim: {highestSimilarity:P2}");
-                return bestMatchEmployeeId;
+                return (bestMatchEmployeeId, bestMatchName);
             }
 
             _logger.LogInformation($"[FaceMatch] Khong xac dinh duoc nhan vien (Duoi nguong {MatchThreshold:P0}). Diem cao nhat: {highestSimilarity:P2}");
-            return null;
+            return (null, null);
         }
     }
 }

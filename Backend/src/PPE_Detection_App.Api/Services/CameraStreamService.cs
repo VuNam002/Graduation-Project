@@ -242,6 +242,7 @@ namespace PPE_Detection_App.Api.Services
             var relativePath = $"/violations/{fileName}";
 
             await image.SaveAsJpegAsync(imagePath);
+            var detectedEmployeeNames = new HashSet<string>();
 
             foreach (var detection in violations)
             {
@@ -322,7 +323,12 @@ namespace PPE_Detection_App.Api.Services
                             var embedding = faceService.GetFaceEmbedding(rgbCrop);
                             
                             // Gọi "Tổ đội trưởng" FaceMatcherService để xác định nhân viên
-                            matchedEmployeeId = await faceMatcherService.IdentifyEmployeeAsync(embedding);
+                            var matchResult = await faceMatcherService.IdentifyEmployeeAsync(embedding);
+                            matchedEmployeeId = matchResult.Id;
+                            if (!string.IsNullOrEmpty(matchResult.Name)) 
+                            {
+                                detectedEmployeeNames.Add(matchResult.Name);
+                            }
                         }
                     }
                     else 
@@ -356,7 +362,8 @@ namespace PPE_Detection_App.Api.Services
             try 
             {
                 string adminEmail = config["EmailSettings:AdminEmail"] ?? "vun197276@gmail.com"; 
-                emailService.SendViolationEmail(adminEmail, imagePath, $"Camera Detection (ID: {violations.First().Label})");
+                string namesStr = detectedEmployeeNames.Any() ? string.Join(", ", detectedEmployeeNames) : "Không xác định";
+                emailService.SendViolationEmail(adminEmail, imagePath, $"Camera Detection (ID: {violations.First().Label})", namesStr);
             }
             catch (Exception ex)
             {

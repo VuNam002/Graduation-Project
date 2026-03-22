@@ -1,4 +1,4 @@
-﻿﻿﻿﻿using Microsoft.AspNetCore.Mvc;
+﻿﻿﻿﻿﻿﻿using Microsoft.AspNetCore.Mvc;
 using PPE_Detection_App.Api.Services;
 using PPE_Detection_App.Api.Models;
 
@@ -100,7 +100,7 @@ namespace PPE_Detection_App.Api.Controllers
                     return BadRequest(new { success = false, error = "Thiếu thông tin email hoặc link ảnh vi phạm!" });
                 }
 
-                _emailService.SendViolationEmail(request.ManagerEmail, request.ImageUrl, request.Location);
+                _emailService.SendViolationEmail(request.ManagerEmail, request.ImageUrl, request.Location, request.EmployeeName ?? "Không xác định");
 
                 return Ok(new
                 {
@@ -453,5 +453,6 @@ namespace PPE_Detection_App.Api.Controllers
         public string ManagerEmail { get; set; }
         public string ImageUrl { get; set; }
         public string Location { get; set; }
+        public string? EmployeeName { get; set; }
     }
 }

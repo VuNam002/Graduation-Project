@@ -10,7 +10,7 @@ public class EmailService
         _configuration = configuration;
     }
 
-    public void SendViolationEmail(string toEmail, string imagePath, string location)
+    public void SendViolationEmail(string toEmail, string imagePath, string location, string employeeName = "Không xác định")
     {
         string senderEmail = _configuration["EmailSettings:SenderEmail"];
         string appPassword = _configuration["EmailSettings:AppPassword"];
@@ -32,6 +32,7 @@ public class EmailService
                     <h2 style='color: red;'>Phát hiện vi phạm không mặc đồ bảo hộ!</h2>
                     <p><strong>Thời gian:</strong> {DateTime.Now:dd/MM/yyyy HH:mm:ss}</p>
                     <p><strong>Khu vực:</strong> {location}</p>
+                    <p><strong>Nhân viên vi phạm:</strong> {employeeName}</p>
                     <p><strong>Hình ảnh camera:</strong></p>
                     <img src='cid:{contentId}' alt='Ảnh vi phạm' style='max-width:600px; border: 2px solid red;'/>
                 </div>";
