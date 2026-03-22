@@ -303,6 +303,7 @@ export function ViolationsTable() {
                   <TableHead className="text-base py-4">Loại vi phạm</TableHead>
                   <TableHead className="text-base py-4">Mức độ</TableHead>
                   <TableHead className="text-base py-4">Thời gian</TableHead>
+                  <TableHead className="text-base py-4">Nhân viên</TableHead>
                   <TableHead className="text-base py-4">Trạng thái</TableHead>
                   <TableHead className="text-base py-4">Hành động</TableHead>
                 </TableRow>
@@ -323,6 +324,7 @@ export function ViolationsTable() {
                           {v.displayName ?? v.categoryId}
                         </div>
                       </TableCell>
+                      
                       <TableCell className="py-4">
                         <SeverityBadge level={v.severityLevel} />
                       </TableCell>
@@ -330,6 +332,18 @@ export function ViolationsTable() {
                       <TableCell className="text-base py-4">
                         {new Date(v.detectedTime).toLocaleString("vi-VN")}
                       </TableCell>
+
+                      <TableCell className="py-4">
+                        {v.employeeName ? (
+                          <div className="flex flex-col">
+                            <span className="font-semibold text-sm">{v.employeeName}</span>
+                            <span className="text-xs text-muted-foreground">{v.employeeCode}</span>
+                          </div>
+                        ) : (
+                          <span className="text-sm text-muted-foreground italic">Không xác định</span>
+                        )}
+                      </TableCell>
+
                       <TableCell className="py-4">
                         <div
                           className={`inline-flex cursor-pointer hover:opacity-80 transition-opacity ${

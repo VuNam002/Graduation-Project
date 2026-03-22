@@ -2,6 +2,9 @@ using Microsoft.AspNetCore.Mvc;
 using PPE_Detection_App.Api.Services;
 using PPE_Detection_App.Api.Models;
 using SixLabors.ImageSharp;
+using SixLabors.ImageSharp.PixelFormats;
+using SixLabors.ImageSharp.Processing;
+using System.Text.Json;
 
 namespace PPE_Detection_App.Api.Controllers
 {
@@ -12,12 +15,16 @@ namespace PPE_Detection_App.Api.Controllers
         private readonly YoloV8Processor _processor;
         private readonly DatabaseService _dbService;
         private readonly IWebHostEnvironment _env;
+        private readonly FaceRecognitionService _faceService;
+        private readonly FaceMatcherService _faceMatcherService;
 
-        public DetectionController(YoloV8Processor processor, DatabaseService dbService, IWebHostEnvironment env)
+        public DetectionController(YoloV8Processor processor, DatabaseService dbService, IWebHostEnvironment env, FaceRecognitionService faceService, FaceMatcherService faceMatcherService)
         {
             _processor = processor;
             _dbService = dbService;
             _env = env;
+            _faceService = faceService;
+            _faceMatcherService = faceMatcherService;
         }
 
         [HttpGet("health")]
@@ -64,24 +71,68 @@ namespace PPE_Detection_App.Api.Controllers
                     await image.SaveAsJpegAsync(fullPath);
                     
                     var validCategoryIds = new HashSet<string>(validCategories.Select(c => c.Id), StringComparer.OrdinalIgnoreCase);
-
                     foreach (var issue in allViolations)
                     {
                         if (validCategoryIds.Contains(issue.Label))
                         {
+                            int? matchedEmployeeId = null;
+                            try
+                            {
+                                float targetWidth = issue.Box.Width;
+                                float targetHeight = issue.Box.Height;
+                                float cx = issue.Box.X + issue.Box.Width / 2f;
+                                float cy = issue.Box.Y + issue.Box.Height / 2f;
+
+                                // Ước lượng lại vùng đầu nếu Box chỉ bao quanh một phần nhỏ (Khẩu trang / Mũ)
+                                if (issue.Label == "NO-Mask" || issue.Label == "NO-Hardhat" || issue.Label == "NO-Goggles")
+                                {
+                                    targetWidth *= 2.8f;
+                                    targetHeight *= 2.8f;
+                                    
+                                    if (issue.Label == "NO-Mask") cy -= issue.Box.Height * 0.8f;
+                                    else if (issue.Label == "NO-Hardhat") cy += issue.Box.Height * 0.8f;
+                                }
+                                
+                                float squareSize = Math.Max(targetWidth, targetHeight) * 1.2f;
+
+                                int x = (int)Math.Max(0, cx - squareSize / 2f);
+                                int y = (int)Math.Max(0, cy - squareSize / 2f);
+                                int width = (int)Math.Min(image.Width - x, squareSize);
+                                int height = (int)Math.Min(image.Height - y, squareSize);
+
+                                if (width > 0 && height > 0)
+                                {
+                                    var cropRect = new Rectangle(x, y, width, height);
+                                    using var cropImage = image.Clone(ctx => ctx.Crop(cropRect));
+                                    using var rgbCrop = cropImage.CloneAs<Rgb24>();
+                                    var embedding = _faceService.GetFaceEmbedding(rgbCrop);
+                                    var matchResult = await _faceMatcherService.IdentifyEmployeeAsync(embedding);
+                                    matchedEmployeeId = matchResult.Id;
+                                }
+                            }
+                            catch
+                            {
+                                // Bỏ qua lỗi nếu trích xuất/nhận diện khuôn mặt thất bại, tiếp tục lưu vi phạm
+                            }
+
                             var log = new ViolationLog
                             {
                                 Category_Id = issue.Label,
                                 Image_Path = dbImagePath,
-                                Confidence_Score = Math.Round(issue.Confidence, 3),
-                                Box_X = Math.Round(issue.Box.X, 2),
-                                Box_Y = Math.Round(issue.Box.Y, 2),
-                                Box_W = Math.Round(issue.Box.Width, 2),
-                                Box_H = Math.Round(issue.Box.Height, 2)
+                                Confidence_Score = issue.Confidence,
+                                Box_X = issue.Box.X,
+                                Box_Y = issue.Box.Y,
+                                Box_W = issue.Box.Width,
+                                Box_H = issue.Box.Height,
+                                Detected_Time = DateTime.Now,
+                                Status = 0,
+                                Employee_Id = matchedEmployeeId
                             };
+
                             await _dbService.InsertViolationLogAsync(log);
                             savedViolations.Add(issue.Label);
                         }
+
                     }
                 }
 

@@ -20,5 +20,7 @@ namespace PPE_Detection_App.Api.Models
         public string? Category_DisplayName { get; set; }
         public int Severity_Level { get; set; }
         public string? Color_Code { get; set; }
+
+        public int? Employee_Id { get; set; }
     }
 }

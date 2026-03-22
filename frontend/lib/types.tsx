@@ -257,6 +257,9 @@ export interface ViolationLog {
   }
   status: number       
   statusText?: string
+  employeeId?: number | null
+  employeeName?: string
+  employeeCode?: string
   isDeleted?: boolean
 }
 

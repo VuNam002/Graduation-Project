@@ -1,4 +1,4 @@
-﻿using Dapper;
+﻿﻿﻿﻿using Dapper;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.Data.SqlClient;
 using PPE_Detection_App.Api.Models;
@@ -22,9 +22,9 @@ namespace PPE_Detection_App.Api.Services
             using var connection = new SqlConnection(_connectionString);
             string sql = @"
                 INSERT INTO Violation_Log 
-                (Category_Id, Image_Path, Confidence_Score, Box_X, Box_Y, Box_W, Box_H, Detected_Time) 
+                (Category_Id, Image_Path, Confidence_Score, Box_X, Box_Y, Box_W, Box_H, Detected_Time, Employee_Id) 
                 VALUES 
-                (@Category_Id, @Image_Path, @Confidence_Score, @Box_X, @Box_Y, @Box_W, @Box_H, GETDATE())";
+                (@Category_Id, @Image_Path, @Confidence_Score, @Box_X, @Box_Y, @Box_W, @Box_H, GETDATE(), @Employee_Id)";
             await connection.ExecuteAsync(sql, log);
         }
 
@@ -92,7 +92,8 @@ namespace PPE_Detection_App.Api.Services
                     vl.Box_W,
                     vl.Box_H,
                     vl.Status,
-                    vl.Is_Deleted
+                    vl.Is_Deleted,
+                    vl.Employee_Id
                 FROM Violation_Log vl
                 LEFT JOIN Violation_Category vc ON vl.Category_Id = vc.Id
                 WHERE {whereClause}
@@ -484,6 +485,22 @@ namespace PPE_Detection_App.Api.Services
                         WHERE Username = @Username";
                     await connection.ExecuteAsync(sql, new { Username = username, PasswordHash = passwordHash });
                 }
-            }
 
+        public async Task AddEmployeeAsync(Employee employee)
+        {
+            using var connection = new SqlConnection(_connectionString);
+            string sql = @"
+                INSERT INTO Employee (Employee_Code, Full_Name, Department, Face_Vector)
+                VALUES (@Employee_Code, @Full_Name, @Department, @Face_Vector)";
+            await connection.ExecuteAsync(sql, employee);
         }
+
+        public async Task<List<Employee>> GetAllEmployeesAsync()
+        {
+            using var connection = new SqlConnection(_connectionString);
+            string sql = "SELECT * FROM Employee";
+            var result = await connection.QueryAsync<Employee>(sql);
+            return result.ToList();
+        }
+    }
+}

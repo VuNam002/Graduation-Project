@@ -4,6 +4,27 @@ using PPE_Detection_App.Api.Models;
 
 namespace PPE_Detection_App.Api.Services
 {
+    public class ViolationViewModel
+    {
+        public long Id { get; set; }
+        public string Category_Id { get; set; } = string.Empty;
+        public string? Category_DisplayName { get; set; }
+        public int Severity_Level { get; set; }
+        public string? Color_Code { get; set; }
+        public string Image_Path { get; set; } = string.Empty;
+        public double Confidence_Score { get; set; }
+        public DateTime Detected_Time { get; set; }
+        public double Box_X { get; set; }
+        public double Box_Y { get; set; }
+        public double Box_W { get; set; }
+        public double Box_H { get; set; }
+        public byte Status { get; set; }
+        public bool Is_Deleted { get; set; }
+        public int? Employee_Id { get; set; }
+        public string? Employee_Name { get; set; }
+        public string? Employee_Code { get; set; }
+    }
+
     public class ViolationRepository
     {
         private readonly string _connectionString;
@@ -21,16 +42,16 @@ namespace PPE_Detection_App.Api.Services
             using var connection = new SqlConnection(_connectionString);
             string sql = @"
                 INSERT INTO Violation_Log 
-                (Category_Id, Image_Path, Confidence_Score, Box_X, Box_Y, Box_W, Box_H, Detected_Time) 
+                (Category_Id, Image_Path, Confidence_Score, Box_X, Box_Y, Box_W, Box_H, Detected_Time, Employee_Id) 
                 VALUES 
-                (@Category_Id, @Image_Path, @Confidence_Score, @Box_X, @Box_Y, @Box_W, @Box_H, GETDATE())";
+                (@Category_Id, @Image_Path, @Confidence_Score, @Box_X, @Box_Y, @Box_W, @Box_H, GETDATE(), @Employee_Id)";
             await connection.ExecuteAsync(sql, log);
         }
 
         /// <summary>
         /// Lấy danh sách violations với filter và phân trang
         /// </summary>
-        public async Task<(IEnumerable<ViolationLog> Data, int TotalCount)> GetViolationsAsync(
+        public async Task<(IEnumerable<ViolationViewModel> Data, int TotalCount)> GetViolationsAsync(
             DateTime? fromDate = null, DateTime? toDate = null,
             string? categoryId = null, byte? status = null,
             int page = 1, int pageSize = 20)
@@ -79,29 +100,33 @@ namespace PPE_Detection_App.Api.Services
                     vl.Id, vl.Category_Id, vc.Display_Name AS Category_DisplayName,
                     vc.Severity_Level, vc.Color_Code, vl.Image_Path, vl.Confidence_Score,
                     vl.Detected_Time, vl.Box_X, vl.Box_Y, vl.Box_W, vl.Box_H,
-                    vl.Status, vl.Is_Deleted
+                    vl.Status, vl.Is_Deleted, vl.Employee_Id,
+                    e.Full_Name AS Employee_Name, e.Employee_Code
                 FROM Violation_Log vl
                 LEFT JOIN Violation_Category vc ON vl.Category_Id = vc.Id
+                LEFT JOIN Employee e ON vl.Employee_Id = e.Employee_Id
                 WHERE {whereClause}
                 ORDER BY vl.Detected_Time DESC
                 OFFSET @Offset ROWS FETCH NEXT @PageSize ROWS ONLY";
 
-            var data = await connection.QueryAsync<ViolationLog>(dataSql, parameters);
+            var data = await connection.QueryAsync<ViolationViewModel>(dataSql, parameters);
             return (data, totalCount);
         }
 
-        public async Task<ViolationLog?> GetViolationByIdAsync(long id)
+        public async Task<ViolationViewModel?> GetViolationByIdAsync(long id)
         {
             using var connection = new SqlConnection(_connectionString);
             string sql = @"
                 SELECT 
                     vl.*, vc.Display_Name AS Category_DisplayName,
-                    vc.Severity_Level, vc.Color_Code
+                    vc.Severity_Level, vc.Color_Code,
+                    e.Full_Name AS Employee_Name, e.Employee_Code
                 FROM Violation_Log vl
                 LEFT JOIN Violation_Category vc ON vl.Category_Id = vc.Id
+                LEFT JOIN Employee e ON vl.Employee_Id = e.Employee_Id
                 WHERE vl.Id = @Id AND vl.Is_Deleted = 0";
 
-            return await connection.QueryFirstOrDefaultAsync<ViolationLog>(sql, new { Id = id });
+            return await connection.QueryFirstOrDefaultAsync<ViolationViewModel>(sql, new { Id = id });
         }
 
         /// <summary>
