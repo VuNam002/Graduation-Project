@@ -78,10 +78,27 @@ namespace PPE_Detection_App.Api.Controllers
                             int? matchedEmployeeId = null;
                             try
                             {
-                                int x = (int)Math.Max(0, issue.Box.X);
-                                int y = (int)Math.Max(0, issue.Box.Y);
-                                int width = (int)Math.Min(image.Width - x, issue.Box.Width);
-                                int height = (int)Math.Min(image.Height - y, issue.Box.Height);
+                                float targetWidth = issue.Box.Width;
+                                float targetHeight = issue.Box.Height;
+                                float cx = issue.Box.X + issue.Box.Width / 2f;
+                                float cy = issue.Box.Y + issue.Box.Height / 2f;
+
+                                // Ước lượng lại vùng đầu nếu Box chỉ bao quanh một phần nhỏ (Khẩu trang / Mũ)
+                                if (issue.Label == "NO-Mask" || issue.Label == "NO-Hardhat" || issue.Label == "NO-Goggles")
+                                {
+                                    targetWidth *= 2.8f;
+                                    targetHeight *= 2.8f;
+                                    
+                                    if (issue.Label == "NO-Mask") cy -= issue.Box.Height * 0.8f;
+                                    else if (issue.Label == "NO-Hardhat") cy += issue.Box.Height * 0.8f;
+                                }
+                                
+                                float squareSize = Math.Max(targetWidth, targetHeight) * 1.2f;
+
+                                int x = (int)Math.Max(0, cx - squareSize / 2f);
+                                int y = (int)Math.Max(0, cy - squareSize / 2f);
+                                int width = (int)Math.Min(image.Width - x, squareSize);
+                                int height = (int)Math.Min(image.Height - y, squareSize);
 
                                 if (width > 0 && height > 0)
                                 {
@@ -89,12 +106,13 @@ namespace PPE_Detection_App.Api.Controllers
                                     using var cropImage = image.Clone(ctx => ctx.Crop(cropRect));
                                     using var rgbCrop = cropImage.CloneAs<Rgb24>();
                                     var embedding = _faceService.GetFaceEmbedding(rgbCrop);
-
-                                    // Giao việc so sánh cho FaceMatcherService
                                     matchedEmployeeId = await _faceMatcherService.IdentifyEmployeeAsync(embedding);
                                 }
                             }
-                            catch { /* Bỏ qua lỗi ảnh/cắt lỗi */ }
+                            catch
+                            {
+                                // Bỏ qua lỗi nếu trích xuất/nhận diện khuôn mặt thất bại, tiếp tục lưu vi phạm
+                            }
 
                             var log = new ViolationLog
                             {

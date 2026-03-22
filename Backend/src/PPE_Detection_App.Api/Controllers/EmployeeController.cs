@@ -1,4 +1,4 @@
-﻿﻿using Microsoft.AspNetCore.Mvc;
+﻿﻿﻿﻿using Microsoft.AspNetCore.Mvc;
 using Models.DTO;
 using PPE_Detection_App.Api.Models;
 using PPE_Detection_App.Api.Models.DTO;
@@ -32,39 +32,45 @@ namespace PPE_Detection_App.Api.Controllers
         /// API Đăng ký khuôn mặt nhân viên (eKYC)
         /// </summary>
         [HttpPost("enroll")]
-        public async Task<IActionResult> EnrollEmployee([FromForm] EnrollEmployeeRequest request)
+        public async Task<IActionResult> EnrollEmployee([FromForm] string employeeCode, [FromForm] string fullName, [FromForm] string department, [FromForm] List<IFormFile> faceImages)
         {
-            if (request.FaceImage == null || request.FaceImage.Length == 0)
-                return BadRequest("Vui long tai anh len khuon mat!");
+            if (faceImages == null || !faceImages.Any())
+                return BadRequest("Vui lòng tải lên ít nhất 1 ảnh khuôn mặt (khuyến nghị 3-5 ảnh ở các góc khác nhau)!");
 
             try
             {
-                using var stream = request.FaceImage.OpenReadStream();
-                using var image = await Image.LoadAsync<Rgb24>(stream);
-
-                float[] faceVector = _faceRecognitionService.GetFaceEmbedding(image);
-
-                if (faceVector.Length == 0)
-                    return BadRequest("Khong the trich xuat dac trung tu anh nay");
-
-                string vectorJsonString = JsonSerializer.Serialize(faceVector);
-
-                // Tạo mục lưu trữ hình ảnh định danh nhân viên (eKYC)
+                var faceVectors = new List<float[]>();
                 var employeeFacesDir = Path.Combine(_env.WebRootPath ?? Path.Combine(Directory.GetCurrentDirectory(), "wwwroot"), "employee_faces");
-                if (!Directory.Exists(employeeFacesDir))
+                if (!Directory.Exists(employeeFacesDir)) Directory.CreateDirectory(employeeFacesDir);
+
+                foreach (var file in faceImages)
                 {
-                    Directory.CreateDirectory(employeeFacesDir);
+                    if (file.Length == 0) continue;
+                    using var stream = file.OpenReadStream();
+                    using var image = await Image.LoadAsync<Rgb24>(stream);
+
+                    float[] vector = _faceRecognitionService.GetFaceEmbedding(image);
+                    if (vector.Length > 0)
+                    {
+                        faceVectors.Add(vector);
+                        
+                        // Lưu ảnh backup
+                        var fileName = $"{employeeCode}_{Guid.NewGuid().ToString("N").Substring(0, 8)}.jpg";
+                        await image.SaveAsJpegAsync(Path.Combine(employeeFacesDir, fileName));
+                    }
                 }
-                
-                var fileName = $"{request.EmployeeCode}_{DateTime.Now:yyyyMMddHHmmss}.jpg";
-                var filePath = Path.Combine(employeeFacesDir, fileName);
-                await image.SaveAsJpegAsync(filePath);
+
+                if (!faceVectors.Any())
+                    return BadRequest("Không thể trích xuất đặc trưng từ các ảnh này. Vui lòng thử ảnh rõ mặt hơn.");
+
+                // Lưu danh sách vector thành JSON (Mảng 2 chiều: float[][])
+                string vectorJsonString = JsonSerializer.Serialize(faceVectors);
 
                 var newEmployee = new Employee
                 {
-                    Employee_Code = request.EmployeeCode,
-                    Full_Name = request.FullName,
-                    Department = request.Department,
+                    Employee_Code = employeeCode,
+                    Full_Name = fullName,
+                    Department = department,
                     Face_Vector = vectorJsonString
                 };
 
@@ -72,9 +78,9 @@ namespace PPE_Detection_App.Api.Controllers
 
                 return Ok(new
                 {
-                    Message = "Dang ky khuon mat thanh cong",
-                    EmployeeName = request.FullName,
-                    VectorLength = faceVector.Length
+                    Message = "Đăng ký khuôn mặt đa góc độ thành công",
+                    EmployeeName = fullName,
+                    TotalAnglesEnrolled = faceVectors.Count
                 });
             }
             catch (Exception ex)

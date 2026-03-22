@@ -162,8 +162,6 @@ namespace PPE_Detection_App.Api.Services
                     imageForProcessing?.Dispose();
                 }
 
-                // Bỏ delay ở cuối vòng lặp để xử lý frame nhanh nhất có thể.
-                // FPS sẽ được giới hạn bởi tốc độ xử lý và tốc độ của camera.
                 await Task.Yield(); // Cho phép các tác vụ khác chạy
             }
         }
@@ -214,8 +212,6 @@ namespace PPE_Detection_App.Api.Services
         {
             var box = detection.Box;
             var label = $"{detection.Label} ({detection.Confidence:P0})";
-            
-            // Màu Xanh lá cho đối tượng bình thường, Đỏ cho vi phạm mới, Vàng cho vi phạm đang cooldown
             var color = isViolation ? (isOnCooldown ? Color.Yellow : Color.Red) : Color.LimeGreen;
             var rect = new RectangleF((float)box.Left, (float)box.Top, (float)box.Width, (float)box.Height);
 
@@ -257,7 +253,7 @@ namespace PPE_Detection_App.Api.Services
                     var centerY = detection.Box.Top + detection.Box.Height / 2;
 
                     bool hasFaceBox = false;
-                    BoundingBox targetFaceBox = detection.Box; // Khởi tạo giá trị mặc định
+                    BoundingBox targetFaceBox = detection.Box; 
 
                     foreach (var p in allDetections)
                     {
@@ -273,36 +269,52 @@ namespace PPE_Detection_App.Api.Services
                             
                             targetFaceBox = new BoundingBox(headX, headY, headWidth, headHeight);
                             hasFaceBox = true;
-                            _logger.LogInformation($"[FaceRec] Tìm thấy 'Person' chứa lỗi {detection.Label}, đang cắt vùng đầu...");
+                            _logger.LogInformation($"[FaceRec] Tim thay 'Person' chua loi {detection.Label}, dang cat vung dau...");
                             break; // Tìm thấy Person chứa lỗi thì dừng loop luôn
                         }
                     }
 
                     if (!hasFaceBox && (detection.Label == "NO-Hardhat" || detection.Label == "NO-Mask" || detection.Label == "NO-Goggles"))
                     {
-                        // Lỗi ở vùng đầu (không tìm thấy dáng người), lấy luôn box của lỗi làm Face Box
-                        targetFaceBox = detection.Box;
+                        float estHeadWidth = detection.Box.Width * 2.8f;
+                        float estHeadHeight = detection.Box.Height * 2.8f;
+
+                        float estCx = detection.Box.Left + detection.Box.Width / 2f;
+                        float estCy = detection.Box.Top + detection.Box.Height / 2f;
+                        if (detection.Label == "NO-Mask") 
+                        {
+                            estCy -= detection.Box.Height * 0.8f; 
+                        } 
+                        else if (detection.Label == "NO-Hardhat") 
+                        {
+                            estCy += detection.Box.Height * 0.8f; 
+                        }
+
+                        targetFaceBox = new BoundingBox(estCx - estHeadWidth / 2f, estCy - estHeadHeight / 2f, estHeadWidth, estHeadHeight);
                         hasFaceBox = true;
-                        _logger.LogInformation($"[FaceRec] Không thấy 'Person', lấy box của lỗi {detection.Label} làm vùng khuôn mặt.");
+                        _logger.LogInformation($"[FaceRec] Không thấy 'Person', đã mở rộng và ước lượng vùng đầu từ lỗi {detection.Label}.");
                     }
 
-                    // Nếu có vùng nghi ngờ là khuôn mặt thì mới cắt để chạy nhận diện
                     if (hasFaceBox)
                     {
-                        int x = (int)Math.Max(0, targetFaceBox.Left);
-                        int y = (int)Math.Max(0, targetFaceBox.Top);
-                        int width = (int)Math.Min(image.Width - x, targetFaceBox.Width);
-                        int height = (int)Math.Min(image.Height - y, targetFaceBox.Height);
+                        float cx = targetFaceBox.Left + targetFaceBox.Width / 2f;
+                        float cy = targetFaceBox.Top + targetFaceBox.Height / 2f;
+                        
+                        float squareSize = Math.Max(targetFaceBox.Width, targetFaceBox.Height) * 1.2f;
+
+                        int x = (int)Math.Max(0, cx - squareSize / 2f);
+                        int y = (int)Math.Max(0, cy - squareSize / 2f);
+                        int width = (int)Math.Min(image.Width - x, squareSize);
+                        int height = (int)Math.Min(image.Height - y, squareSize);
 
                         if (width > 0 && height > 0)
                         {
                             var cropRect = new Rectangle(x, y, width, height);
                             using var cropImage = image.Clone(ctx => ctx.Crop(cropRect));
                             
-                            // --- LƯU ẢNH CROP ĐỂ DEBUG XEM AI CÓ NHÌN THẤY MẶT KHÔNG ---
                             var debugCropPath = Path.Combine(_outputDirectory, $"debug_face_{timestamp}_{randomSuffix}.jpg");
                             await cropImage.SaveAsJpegAsync(debugCropPath);
-                            _logger.LogInformation($"[FaceRec] Đã lưu ảnh khuôn mặt trích xuất tại: /violations/debug_face_{timestamp}_{randomSuffix}.jpg");
+                            _logger.LogInformation($"[FaceRec] Đa lu anh trich xuat tai: /violations/debug_face_{timestamp}_{randomSuffix}.jpg");
 
                             using var rgbCrop = cropImage.CloneAs<Rgb24>();
                             
@@ -315,12 +327,12 @@ namespace PPE_Detection_App.Api.Services
                     }
                     else 
                     {
-                        _logger.LogWarning($"[FaceRec] Không xác định được vùng đầu cho lỗi {detection.Label}");
+                        _logger.LogWarning($"[FaceRec] Khong xac dinh vung dau loi {detection.Label}");
                     }
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogWarning($"Lỗi trích xuất khuôn mặt: {ex.Message}");
+                    _logger.LogWarning($"Loi trich xuat khuon mat: {ex.Message}");
                 }
 
                 var log = new ViolationLog

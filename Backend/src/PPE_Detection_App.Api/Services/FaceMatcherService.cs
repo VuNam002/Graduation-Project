@@ -46,19 +46,33 @@ namespace PPE_Detection_App.Api.Services
 
                 try
                 {
-                    float[]? knownFaceVector = JsonSerializer.Deserialize<float[]>(emp.Face_Vector);
-                    if (knownFaceVector == null || knownFaceVector.Length != unknownFaceVector.Length)
-                        continue;
-
-                    double similarity = _faceRecognitionService.CalculateCosineSimilarity(unknownFaceVector, knownFaceVector);
-                    _logger.LogInformation($"[FaceMatch] So sanh voi {emp.Full_Name}: Độ giống {similarity:P2}");
-
-                    if (similarity > highestSimilarity)
+                    float[][]? knownFaceVectors = null;
+                    try 
                     {
-                        highestSimilarity = similarity;
-                        bestMatchEmployeeId = emp.Employee_Id;
-                        bestMatchName = emp.Full_Name;
+                        knownFaceVectors = JsonSerializer.Deserialize<float[][]>(emp.Face_Vector);
                     }
+                    catch
+                    {
+                        var singleVector = JsonSerializer.Deserialize<float[]>(emp.Face_Vector);
+                        if (singleVector != null) knownFaceVectors = new float[][] { singleVector };
+                    }
+
+                    if (knownFaceVectors == null || knownFaceVectors.Length == 0) continue;
+                    foreach (var knownVector in knownFaceVectors)
+                    {
+                        if (knownVector.Length != unknownFaceVector.Length) continue;
+
+                        double similarity = _faceRecognitionService.CalculateCosineSimilarity(unknownFaceVector, knownVector);
+                        
+                        if (similarity > highestSimilarity)
+                        {
+                            highestSimilarity = similarity;
+                            bestMatchEmployeeId = emp.Employee_Id;
+                            bestMatchName = emp.Full_Name;
+                        }
+                    }
+                    
+                    _logger.LogInformation($"[FaceMatch] So sanh voi{emp.Full_Name}: Do giong cao nhat {highestSimilarity:P2}");
                 }
                 catch
                 {
