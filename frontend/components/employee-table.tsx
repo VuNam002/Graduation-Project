@@ -43,7 +43,7 @@ import {
 import { Employee } from "@/lib/types"
 
 import {fetchGetAllEmployee, fetchDeleteEmployee } from "@/lib/api"
-import { ca } from "zod/locales"
+import Link from "next/link"
 
 const PAGE_SIZE = 6
 
@@ -217,13 +217,21 @@ export function EmployeesTable() {
                           {emp.created_At ? new Date(emp.created_At).toLocaleDateString("vi-VN") : "---"}
                         </TableCell>
                         <TableCell className="py-4 text-center">
+                        <div className="flex items-center justify-center gap-1">
+                          <Link href={`/employee/detail/${emp.employee_Id}`}>
+                            <Button variant="ghost" size="icon" title="Chi tiết nhân viên">
+                              <IconIdBadge2 className="size-5 text-blue-600" />
+                            </Button>
+                          </Link>
                           <Button
-                            variant="outline"
-                            size="sm"
+                            variant="ghost"
+                            size="icon"
                             onClick={() => handleDelete(emp.employee_Id)}
+                            title="Xóa nhân viên"
                           >
-                            <IconTrash className="size-4" />
+                            <IconTrash className="size-5 text-red-500" />
                           </Button>
+                        </div>
                         </TableCell>
 
                       </TableRow>

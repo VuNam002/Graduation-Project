@@ -356,7 +356,13 @@ export async function fetchGetAllEmployee(): Promise<fetchGetAllEmployeeResponse
     method: 'GET',
     headers: getAuthHeaders(),
   });
-  
+}
+
+export async function fetchDetailEmployee(employee_Id: number): Promise<fetchGetAllEmployeeResponse> {
+  return api<fetchGetAllEmployeeResponse>(`${API_URL}/Employee/${employee_Id}`, {
+    method: 'GET',
+    headers: getAuthHeaders(),
+  });
 }
 
 export async function fetchDeleteEmployee(employee_Id: number): Promise<{ success: boolean; message?: string }> {

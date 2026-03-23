@@ -270,6 +270,7 @@ export interface Employee {
   face_Vector: string
   created_At: string
   is_Deleted: boolean
+  avatar_url?: string
 }
 
 export interface ViolationCategory {
@@ -297,6 +298,7 @@ export interface fetchGetAllEmployeeResponse {
   full_Name: string
   department: string
   Face_Vector: string
+  avatar_url?: string
 }
 
 
