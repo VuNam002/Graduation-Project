@@ -314,6 +314,33 @@ export async function fetchDeleteViolation(
   });
 }
 
+export async function fetchExportViolationExcel(startDate: string, endDate: string): Promise<void> {
+  const query = new URLSearchParams();
+  query.append('startDate', startDate);
+  query.append('endDate', endDate);
+
+  const url = `${API_URL}/Violation/export-excel?${query.toString()}`;
+
+  const response = await fetch(url, {
+    method: 'GET',
+    headers: getAuthHeaders(),
+  });
+
+  if (!response.ok) {
+    throw new Error(`Lỗi khi xuất file Excel (${response.status})`);
+  }
+
+  const blob = await response.blob();
+  const downloadUrl = window.URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = downloadUrl;
+  link.setAttribute('download', `ViolationReport_${startDate.replace(/\//g, '')}_${endDate.replace(/\//g, '')}.xlsx`);
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  window.URL.revokeObjectURL(downloadUrl);
+}
+
 export async function fetchCategories(): Promise<ViolationCategory[]> {
   return api<ViolationCategory[]>(`${API_URL}/Category`, {
     method: 'GET',
@@ -368,6 +395,13 @@ export async function fetchDetailEmployee(employee_Id: number): Promise<fetchGet
 export async function fetchDeleteEmployee(employee_Id: number): Promise<{ success: boolean; message?: string }> {
   return api<{ success: boolean; message?: string }>(`${API_URL}/Employee/${employee_Id}`, {
     method: 'DELETE',
+    headers: getAuthHeaders(),
+  });
+}
+
+export async function fetchExcleExportEmployee(): Promise<{ success: boolean; message?: string; fileUrl?: string }> {
+  return api<{ success: boolean; message?: string; fileUrl?: string }>(`${API_URL}/Employee/export`, {
+    method: 'GET',
     headers: getAuthHeaders(),
   });
 }

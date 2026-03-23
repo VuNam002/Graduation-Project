@@ -1,6 +1,8 @@
-﻿﻿﻿﻿using Dapper;
+﻿﻿using ClosedXML.Excel;
+using Dapper;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.Data.SqlClient;
+using Models.DTO;
 using OpenCvSharp;
 using PPE_Detection_App.Api.Models;
 using PPE_Detection_App.Api.Models.DTO;
@@ -430,6 +432,115 @@ namespace PPE_Detection_App.Api.Services
             });
         }
 
+        public async Task<byte[]> ExportViolationReportToExcelAsync(DateTime startDate, DateTime endDate)
+        {
+            var data = (await GetAllViolationDetailsAsync(startDate, endDate)).ToList();
+
+            using var wb = new XLWorkbook();
+            var ws = wb.Worksheets.Add("Báo Cáo Vi Phạm");
+
+            int totalCols = 7;
+
+            ws.Cell(1, 1).Value = $"BÁO CÁO VI PHẠM  |  {startDate:dd/MM/yyyy} – {endDate:dd/MM/yyyy}";
+            ws.Range(1, 1, 1, totalCols).Merge()
+              .Style.Font.SetBold(true).Font.SetFontSize(14)
+              .Alignment.SetHorizontal(XLAlignmentHorizontalValues.Center)
+              .Fill.SetBackgroundColor(XLColor.FromHtml("#2F5496"))
+              .Font.SetFontColor(XLColor.White);
+
+            string[] headers = {
+        "Mã NV", "Họ và Tên", "Phòng Ban",
+        "Loại Vi Phạm", "Mức Độ", 
+        "Thời Gian Phát Hiện", "Trạng Thái"
+    };
+
+            for (int i = 0; i < headers.Length; i++)
+            {
+                var cell = ws.Cell(2, i + 1);
+                cell.Value = headers[i];
+                cell.Style
+                    .Font.SetBold(true)
+                    .Fill.SetBackgroundColor(XLColor.FromHtml("#4472C4"))
+                    .Font.SetFontColor(XLColor.White)
+                    .Alignment.SetHorizontal(XLAlignmentHorizontalValues.Center)
+                    .Border.SetOutsideBorder(XLBorderStyleValues.Thin);
+            }
+
+            int row = 3;
+            bool isAlt = false;
+
+            foreach (var item in data)
+            {
+                ws.Cell(row, 1).Value = item.Employee_Code;
+                ws.Cell(row, 2).Value = item.Full_Name;
+                ws.Cell(row, 3).Value = item.Department;
+                ws.Cell(row, 4).Value = item.Display_Name;
+                ws.Cell(row, 5).Value = item.Severity_Level;
+                ws.Cell(row, 6).Value = item.Detected_Time;
+                ws.Cell(row, 6).Style.NumberFormat.Format = "dd/MM/yyyy HH:mm:ss";
+                ws.Cell(row, 7).Value = item.Status;
+
+                var rowRange = ws.Range(row, 1, row, totalCols);
+                if (isAlt)
+                {
+                    rowRange.Style.Fill.SetBackgroundColor(XLColor.FromHtml("#DCE6F1"));
+                }
+                
+                rowRange.Style.Border.OutsideBorder = XLBorderStyleValues.Thin;
+                rowRange.Style.Border.InsideBorder = XLBorderStyleValues.Hair;
+
+                isAlt = !isAlt;
+                row++;
+            }
+
+            ws.Cell(row, 1).Value = $"Tổng: {data.Count} vi phạm";
+            ws.Range(row, 1, row, totalCols).Merge()
+              .Style.Font.SetBold(true)
+              .Fill.SetBackgroundColor(XLColor.FromHtml("#E2EFDA"))
+              .Alignment.SetHorizontal(XLAlignmentHorizontalValues.Right);
+
+            ws.Columns().AdjustToContents();
+            ws.SheetView.FreezeRows(2);
+
+            using var stream = new MemoryStream();
+            wb.SaveAs(stream);
+            return stream.ToArray();
+        }
+
+        // Method lấy dữ liệu chi tiết (dùng nội bộ cho export)
+        private async Task<IEnumerable<ViolationDetailReportDto>> GetAllViolationDetailsAsync(
+            DateTime startDate, DateTime endDate)
+        {
+            using var connection = new SqlConnection(_connectionString);
+
+            string sql = @"
+        SELECT
+            e.Employee_Code,
+            e.Full_Name,
+            e.Department,
+            vc.Display_Name,
+            vc.Severity_Level,
+            vl.Confidence_Score,
+            vl.Detected_Time,
+            vl.Status
+        FROM Violation_Log vl
+        JOIN Employee e
+            ON vl.Employee_Id = e.Employee_Id
+            AND e.Is_Deleted = 0
+        LEFT JOIN Violation_Category vc
+            ON vl.Category_Id = vc.Id
+            AND vc.Is_Deleted = 0
+        WHERE vl.Is_Deleted = 0
+          AND vl.Detected_Time >= @StartDate
+          AND vl.Detected_Time <= @EndDate
+        ORDER BY vl.Detected_Time DESC";
+
+            return await connection.QueryAsync<ViolationDetailReportDto>(sql, new
+            {
+                StartDate = startDate,
+                EndDate = endDate.AddDays(1).AddSeconds(-1)
+            });
+        }
         public async Task<AdminUser?> DetailAccountAsync(string username)
         {
             using var connection = new SqlConnection(_connectionString);

@@ -1,6 +1,9 @@
 ﻿﻿﻿﻿﻿﻿using Microsoft.AspNetCore.Mvc;
 using PPE_Detection_App.Api.Services;
 using PPE_Detection_App.Api.Models;
+using ClosedXML.Excel; 
+using System.IO;
+using PPE_Detection_App.Api.Models.DTO;
 
 namespace PPE_Detection_App.Api.Controllers
 {
@@ -11,17 +14,20 @@ namespace PPE_Detection_App.Api.Controllers
         private readonly ViolationRepository _violationRepo;
         private readonly DashboardStatisticService _dashboardService;
         private readonly ILogger<ViolationController> _logger;
+        private readonly DatabaseService _databaseService;
         private readonly EmailService _emailService;
 
         public ViolationController(
             ViolationRepository violationRepo,
             DashboardStatisticService dashboardService,
             ILogger<ViolationController> logger,
+            DatabaseService databaseService,
             EmailService emailService)
         {
             _violationRepo = violationRepo;
             _dashboardService = dashboardService;
             _logger = logger;
+            _databaseService = databaseService;
             _emailService = emailService;
         }
 
@@ -441,18 +447,31 @@ namespace PPE_Detection_App.Api.Controllers
                 return StatusCode(500, new { success = false, error = "Lỗi khi lấy tổng quan hôm nay" });
             }
         }
-    }
+        [HttpGet("export-excel")]
+        public async Task<IActionResult> ExportExcel(
+            [FromQuery] DateTime startDate,
+            [FromQuery] DateTime endDate)
+        {
+            var bytes = await _databaseService.ExportViolationReportToExcelAsync(startDate, endDate);
 
-    public class UpdateStatusRequest
-    {
-        public byte Status { get; set; }
-    }
+            string fileName = $"ViolationReport_{startDate:yyyyMMdd}_{endDate:yyyyMMdd}.xlsx";
+            return File(
+                bytes,
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                fileName
+            );
+        }
+        public class UpdateStatusRequest
+        {
+            public byte Status { get; set; }
+        }
 
-    public class ViolationAlertRequest
-    {
-        public string ManagerEmail { get; set; }
-        public string ImageUrl { get; set; }
-        public string Location { get; set; }
-        public string? EmployeeName { get; set; }
+        public class ViolationAlertRequest
+        {
+            public string ManagerEmail { get; set; }
+            public string ImageUrl { get; set; }
+            public string Location { get; set; }
+            public string? EmployeeName { get; set; }
+        }
     }
 }

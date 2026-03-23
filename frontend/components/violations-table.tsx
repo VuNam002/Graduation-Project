@@ -6,6 +6,7 @@ import {
   IconAlertTriangle,
   IconFilter,
   IconPhoto,
+  IconDownload,
 } from "@tabler/icons-react"
 import { toast } from "sonner"
 import { useRouter } from "next/navigation"
@@ -57,6 +58,7 @@ import {
   fetchDeleteViolation,
   fetchCategories,
   getBackendUrl,
+  fetchExportViolationExcel,
 } from "@/lib/api"
 import { ViolationLog, ViolationCategory } from "@/lib/types"
 
@@ -105,9 +107,20 @@ export function ViolationsTable() {
   const [loading, setLoading] = React.useState(true)
   const [updating, setUpdating] = React.useState<number | null>(null)
   const [previewImage, setPreviewImage] = React.useState<string | null>(null)
+  const [isExporting, setIsExporting] = React.useState(false)
 
-  const [fromDate, setFromDate] = React.useState("")
-  const [toDate, setToDate] = React.useState("")
+  const defaultFrom = React.useMemo(() => {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-01`;
+  }, []);
+  
+  const defaultTo = React.useMemo(() => {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  }, []);
+
+  const [fromDate, setFromDate] = React.useState(defaultFrom)
+  const [toDate, setToDate] = React.useState(defaultTo)
   const [categoryId, setCategoryId] = React.useState("all")
   const [status, setStatus] = React.useState("all")
   const [page, setPage] = React.useState(1)
@@ -188,6 +201,23 @@ export function ViolationsTable() {
     }
   }
 
+  const handleExportExcel = async () => {
+    try {
+      setIsExporting(true);
+      toast.info("Đang xử lý file Excel, vui lòng chờ...");
+      const start = fromDate || defaultFrom;
+      const end = toDate || defaultTo;
+
+      await fetchExportViolationExcel(start, end);
+      toast.success("Xuất file Excel thành công!");
+    } catch (error) {
+      console.error("Export error:", error);
+      toast.error("Không thể xuất file Excel. Vui lòng thử lại!");
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
   return (
     <div className="flex flex-col gap-4">
       <Card>
@@ -255,14 +285,23 @@ export function ViolationsTable() {
               variant="outline"
               className="self-end"
               onClick={() => {
-                setFromDate("")
-                setToDate("")
+              setFromDate(defaultFrom)
+              setToDate(defaultTo)
                 setCategoryId("all")
                 setStatus("all")
                 handleFilter();
               }}
             >
               Xóa bộ lọc
+            </Button>
+            <Button
+              variant="default"
+              className="self-end bg-green-600 hover:bg-green-700 text-white"
+              onClick={handleExportExcel}
+              disabled={isExporting}
+            >
+              <IconDownload className="size-4 mr-2" />
+              {isExporting ? "Đang xuất..." : "Xuất Excel"}
             </Button>
           </div>
         </CardContent>
