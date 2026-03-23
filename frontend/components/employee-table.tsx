@@ -58,7 +58,13 @@ export function EmployeesTable() {
     setLoading(true)
     try {
       const data = await fetchGetAllEmployee()
-      setEmployees(data)
+      const formattedData = data.map((item: any) => ({
+        ...item,
+        face_Vector: item.face_Vector || "",
+        created_At: item.created_At || null,
+        is_Deleted: item.is_Deleted || false
+      })) as Employee[]
+      setEmployees(formattedData)
     } catch (error) {
       toast.error("Không thể tải danh sách nhân viên")
       console.error(error)
