@@ -1,4 +1,4 @@
-﻿﻿using Microsoft.AspNetCore.Authentication.JwtBearer;
+﻿﻿﻿﻿using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.ML.OnnxRuntime;
 using Microsoft.OpenApi.Models;
@@ -84,6 +84,7 @@ builder.Services.AddSingleton<DatabaseService>();
 builder.Services.AddScoped<AuthService>();
 builder.Services.AddScoped<ViolationRepository>();
 builder.Services.AddScoped<DashboardStatisticService>();
+builder.Services.AddScoped<SystemService>();
 builder.Services.AddSingleton<WebSocketManagerService>();
 builder.Services.AddSingleton<CameraStreamService>();
 builder.Services.AddScoped<EmailService>();
