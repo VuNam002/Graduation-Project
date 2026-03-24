@@ -17,8 +17,8 @@ namespace PPE_Detection_App.Api.Services
             "Person", "Safety Cone", "Safety Vest"
         };
 
-        private const float DefaultConfidenceThreshold = 0.3f;
-        private const float DefaultNmsThreshold = 0.5f;
+        public const float DefaultConfidenceThreshold = 0.3f;
+        public const float DefaultNmsThreshold = 0.5f;
         private const int ModelWidth = 640;
         private const int ModelHeight = 640;
 

@@ -92,6 +92,10 @@ namespace PPE_Detection_App.Api.Services
 
             using var frame = new Mat();
             using var rgbaFrame = new Mat();
+            
+            DateTime lastConfigCheck = DateTime.MinValue;
+            float currentConf = YoloV8Processor.DefaultConfidenceThreshold;
+            float currentNms = YoloV8Processor.DefaultNmsThreshold;
 
             while (!cancellationToken.IsCancellationRequested)
             {
@@ -116,7 +120,26 @@ namespace PPE_Detection_App.Api.Services
                     var dbService = scope.ServiceProvider.GetRequiredService<DatabaseService>();
                     var faceMatcherService = scope.ServiceProvider.GetRequiredService<FaceMatcherService>();
 
-                    var detections = yoloProcessor.ProcessImage(imageForProcessing);
+                    // Cập nhật cấu hình từ DB mỗi 10 giây thay vì truy vấn liên tục mỗi khung hình
+                    if ((DateTime.UtcNow - lastConfigCheck).TotalSeconds > 10)
+                    {
+                        var confStr = await dbService.GetSystemConfigAsync("ConfidenceThreshold");
+                        if (float.TryParse(confStr, out float parsedConf))
+                        {
+                            currentConf = parsedConf;
+                        }
+
+                        var nmsStr = await dbService.GetSystemConfigAsync("NmsThreshold");
+                        if (float.TryParse(nmsStr, out float parsedNms))
+                        {
+                            currentNms = parsedNms;
+                        }
+                        
+                        lastConfigCheck = DateTime.UtcNow;
+                    }
+
+                    // Truyền ngưỡng cấu hình vào thay vì dùng hằng số mặc định
+                    var detections = yoloProcessor.ProcessImageWithThresholds(imageForProcessing, currentConf, currentNms);
                     var allViolationDetections = detections.Where(d => _violationLabels.Contains(d.Label)).ToList();
 
                     var eligibleDetections = new List<DetectionResult>();

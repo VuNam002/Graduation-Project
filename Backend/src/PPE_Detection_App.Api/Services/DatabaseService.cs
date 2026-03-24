@@ -1,4 +1,4 @@
-﻿﻿using ClosedXML.Excel;
+﻿﻿﻿﻿using ClosedXML.Excel;
 using Dapper;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.Data.SqlClient;
@@ -672,6 +672,25 @@ namespace PPE_Detection_App.Api.Services
                 return false;
             }
 
+        }
+
+        public async Task<string?> GetSystemConfigAsync(string key)
+        {
+            using var connection = new SqlConnection(_connectionString);
+            string sql = "SELECT Config_Value FROM System_Config WHERE Config_Key = @Key";
+            return await connection.QueryFirstOrDefaultAsync<string>(sql, new { Key = key });
+        }
+
+        public async Task UpdateSystemConfigAsync(string key, string value, string? description = null)
+        {
+            using var connection = new SqlConnection(_connectionString);
+            string sql = @"
+                IF EXISTS (SELECT 1 FROM System_Config WHERE Config_Key = @Key)
+                    UPDATE System_Config SET Config_Value = @Value, Description = ISNULL(@Description, Description) WHERE Config_Key = @Key
+                ELSE
+                    INSERT INTO System_Config (Config_Key, Config_Value, Description) VALUES (@Key, @Value, @Description)";
+            
+            await connection.ExecuteAsync(sql, new { Key = key, Value = value, Description = description });
         }
     }
 }
