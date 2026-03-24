@@ -1,5 +1,6 @@
 "use client"
 
+import { useEffect, useState } from "react"
 import {
   IconCreditCard,
   IconDotsVertical,
@@ -7,8 +8,10 @@ import {
   IconNotification,
   IconUserCircle,
 } from "@tabler/icons-react"
+import Link from "next/link"
 
 import { useAuth } from "@/lib/auth"
+import { fetchMeAccount } from "@/lib/api"
 import {
   Avatar,
   AvatarFallback,
@@ -29,9 +32,11 @@ import {
   SidebarMenuItem,
   useSidebar,
 } from "@/components/ui/sidebar"
+import { MeAccountResponse } from "@/lib/types"
+
 
 export function NavUser({
-  user,
+  user: defaultUser,
 }: {
   user: {
     name: string
@@ -41,6 +46,26 @@ export function NavUser({
 }) {
   const { isMobile } = useSidebar()
   const { logout } = useAuth()
+  const [account, setAccount] = useState<MeAccountResponse | null>(null)
+
+  useEffect(() => {
+    const getProfile = async () => {
+      try {
+        const res: any = await fetchMeAccount()
+        if (res.data) {
+          setAccount(res.data)
+        } else {
+          setAccount(res)
+        }
+      } catch (error) {
+        console.error("Failed to fetch profile in NavUser:", error)
+      }
+    }
+    getProfile()
+  }, [])
+
+  const displayName = account?.fullName || account?.username || defaultUser.name
+  const displayEmail = account?.username || defaultUser.email
 
   return (
     <SidebarMenu>
@@ -52,13 +77,13 @@ export function NavUser({
               className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
             >
               <Avatar className="h-8 w-8 rounded-lg grayscale">
-                <AvatarImage src={user.avatar} alt={user.name} />
-                <AvatarFallback className="rounded-lg">CN</AvatarFallback>
+                <AvatarImage src={defaultUser.avatar} alt={displayName} />
+                <AvatarFallback className="rounded-lg">{displayName?.substring(0, 2).toUpperCase() || 'CN'}</AvatarFallback>
               </Avatar>
               <div className="grid flex-1 text-left text-sm leading-tight">
-                <span className="truncate font-medium">{user.name}</span>
+                <span className="truncate font-medium">{displayName}</span>
                 <span className="truncate text-xs text-muted-foreground">
-                  {user.email}
+                  {displayEmail}
                 </span>
               </div>
               <IconDotsVertical className="ml-auto size-4" />
@@ -73,22 +98,24 @@ export function NavUser({
             <DropdownMenuLabel className="p-0 font-normal">
               <div className="flex items-center gap-2 px-1 py-1.5 text-left text-sm">
                 <Avatar className="h-8 w-8 rounded-lg">
-                  <AvatarImage src={user.avatar} alt={user.name} />
-                  <AvatarFallback className="rounded-lg">CN</AvatarFallback>
+                  <AvatarImage src={defaultUser.avatar} alt={displayName} />
+                  <AvatarFallback className="rounded-lg">{displayName?.substring(0, 2).toUpperCase() || 'CN'}</AvatarFallback>
                 </Avatar>
                 <div className="grid flex-1 text-left text-sm leading-tight">
-                  <span className="truncate font-medium">{user.name}</span>
+                  <span className="truncate font-medium">{displayName}</span>
                   <span className="truncate text-xs text-muted-foreground">
-                    {user.email}
+                    {displayEmail}
                   </span>
                 </div>
               </div>
             </DropdownMenuLabel>
             <DropdownMenuSeparator />
             <DropdownMenuGroup>
-              <DropdownMenuItem>
-                <IconUserCircle />
-                Account
+              <DropdownMenuItem asChild>
+                <Link href="/me" className="cursor-pointer">
+                  <IconUserCircle />
+                  Account
+                </Link>
               </DropdownMenuItem>
               <DropdownMenuItem>
                 <IconCreditCard />

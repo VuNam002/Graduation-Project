@@ -407,6 +407,13 @@ export async function fetchDetailEmployee(employee_Id: number): Promise<fetchGet
   });
 }
 
+export async function fetchMeAccount(): Promise<MeAccountResponse> {
+  return api<MeAccountResponse>(`${API_URL}/Admin/me`, {
+    method: 'GET',
+    headers: getAuthHeaders(),
+  });
+}
+
 export async function fetchDeleteEmployee(employee_Id: number): Promise<{ success: boolean; message?: string }> {
   return api<{ success: boolean; message?: string }>(`${API_URL}/Employee/${employee_Id}`, {
     method: 'DELETE',

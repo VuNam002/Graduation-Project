@@ -297,6 +297,13 @@ export interface PaginatedViolationsResponse {
   }
 }
 
+export interface MeAccountResponse {
+  username: string
+  fullName: string
+  role: string
+  status: number
+}
+
 export interface fetchGetAllEmployeeResponse {
   employee_Id: number
   employee_Code: string
