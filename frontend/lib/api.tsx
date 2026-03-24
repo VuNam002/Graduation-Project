@@ -1,4 +1,4 @@
-import { LoginResponse, AccountDetail, fetchGetAllEmployeeResponse, DashboardResponse, RecentViolationsResponse, DashboardMonthlyResponse, DashboardWidgetsResponse, Account, CameraResponse, PaginatedViolationsResponse, ViolationCategory, ViolationLog } from './types';
+import { LoginResponse, AccountDetail, fetchGetAllEmployeeResponse, DashboardResponse, RecentViolationsResponse, DashboardMonthlyResponse, DashboardWidgetsResponse, Account, CameraResponse, PaginatedViolationsResponse, ViolationCategory, ViolationLog, System } from './types';
 
 const API_URL = 'https://localhost:7215/api';
 async function api<T>(url: string, options: RequestInit = {}): Promise<T> {
@@ -382,6 +382,21 @@ export async function fetchGetAllEmployee(): Promise<fetchGetAllEmployeeResponse
   return api<fetchGetAllEmployeeResponse[]>(`${API_URL}/Employee`, {
     method: 'GET',
     headers: getAuthHeaders(),
+  });
+}
+
+export async function fetchSystemAll(): Promise<System> {
+  return api<System>(`${API_URL}/System/config`, {
+    method: 'GET',
+    headers: getAuthHeaders(),
+  });
+}
+
+export async function fetchUpdateSystemConfig(config: System): Promise<{ success: boolean; message?: string }> {
+  return api<{ success: boolean; message?: string }>(`${API_URL}/System/config`, {
+    method: 'POST',
+    headers: getAuthHeaders(),
+    body: JSON.stringify(config),
   });
 }
 

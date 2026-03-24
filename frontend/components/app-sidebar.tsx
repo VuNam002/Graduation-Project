@@ -7,6 +7,7 @@ import {
   IconListDetails,
   IconCashPlus ,
   IconXboxX ,
+  IconAutomation,
   IconLayoutDashboard 
 } from "@tabler/icons-react"
 import Link from "next/link"
@@ -74,6 +75,11 @@ const data = {
         url: "/employee/created"
         }
       ]
+    },
+    {
+      title: "Cài đặt",
+      url: "/system",
+      icon: IconAutomation,
     }
   ],
   navClouds: [

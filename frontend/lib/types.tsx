@@ -176,6 +176,11 @@ export interface DailyStat {
   falseAlert: number;
 }
 
+export interface System {
+  confidenceThreshold: number;
+  nmsThreshold: number;
+}
+
 export interface CategoryStat {
   categoryId: string;
   displayName: string;
