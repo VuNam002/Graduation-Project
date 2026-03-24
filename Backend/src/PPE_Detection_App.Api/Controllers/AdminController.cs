@@ -1,8 +1,9 @@
 ﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using PPE_Detection_App.Api.Models;
-using PPE_Detection_App.Api.Services;
 using PPE_Detection_App.Api.Models.DTO;
+using PPE_Detection_App.Api.Services;
+using System.Security.Claims;
 
 namespace PPE_Detection_App.Api.Controllers
 {
@@ -11,10 +12,12 @@ namespace PPE_Detection_App.Api.Controllers
     public class AdminController : ControllerBase
     {
         private readonly AuthService _authService;
+        private readonly DatabaseService _databaseService;
 
-        public AdminController(AuthService authService)
+        public AdminController(AuthService authService, DatabaseService databaseService)
         {
             _authService = authService;
+            _databaseService = databaseService;
         }
 
         [AllowAnonymous]
@@ -108,14 +111,21 @@ namespace PPE_Detection_App.Api.Controllers
         }
 
         [HttpGet("Detail/{username}")]
-        public async Task<IActionResult> DetailAccount(string username)
+        public async Task<IActionResult> DetailAccountAsync(string username)
         {
-            var result = await _authService.DetailAccountAsync(username);
-            if(!result.Success)
+            try
             {
-                return NotFound(new { message = result.Message });
+                var result = await _authService.DetailAccountAsync(username);
+                if (!result.Success || result.Data == null)
+                {
+                    return NotFound(new { success = false, message = "Khong tim thay tai khoan" });
+                }
+                return Ok(new { success = true, data = result.Data });
+            } catch (Exception ex)
+            {
+                Console.WriteLine($"Error in GetMeAccount: {ex.Message}");
+                return StatusCode(500, new { success = false, message = "Da xay ra loi khi lay chi tiet tai khoan"});
             }
-            return Ok(new { message = result.Message, data = result.Data });
         }
 
         [AllowAnonymous]
@@ -136,6 +146,34 @@ namespace PPE_Detection_App.Api.Controllers
         public IActionResult Logout()
         {
             return Ok(new { message = "Đăng xuất thành công" });
+        }
+        [Authorize]
+        [HttpGet("me")]
+        public async Task<ActionResult> GetMeAccount()
+        {
+            try
+            {
+                
+                var username = User.FindFirst(ClaimTypes.NameIdentifier)?.Value
+                               ?? User.Identity?.Name;
+
+                if (string.IsNullOrEmpty(username))
+                {
+                    return Unauthorized(new { success = false, message = "Khong tim thay thong tin nguoi dung." });
+                }
+
+                var result = await _authService.DetailAccountAsync(username);
+                if (!result.Success)
+                {
+                    return NotFound(new { message = result.Message });
+                }
+                return Ok(new { message = result.Message, data = result.Data });
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error in GetMeAccount: {ex.Message}");
+                return StatusCode(500, new { success = false, message = "Da xay ra loi khi lay thong tin tai khoan." });
+            }
         }
     } 
 }
