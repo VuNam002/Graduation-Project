@@ -1,4 +1,4 @@
-import { LoginResponse, AccountDetail, fetchGetAllEmployeeResponse, DashboardResponse, RecentViolationsResponse, DashboardMonthlyResponse, DashboardWidgetsResponse, Account, CameraResponse, PaginatedViolationsResponse, ViolationCategory, ViolationLog, System } from './types';
+import { LoginResponse, AccountDetail,MeAccountResponse, fetchGetAllEmployeeResponse, DashboardResponse, RecentViolationsResponse, DashboardMonthlyResponse, DashboardWidgetsResponse, Account, CameraResponse, PaginatedViolationsResponse, ViolationCategory, ViolationLog, System } from './types';
 
 const API_URL = 'https://localhost:7215/api';
 async function api<T>(url: string, options: RequestInit = {}): Promise<T> {

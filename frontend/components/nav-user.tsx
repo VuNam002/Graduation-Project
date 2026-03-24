@@ -114,22 +114,18 @@ export function NavUser({
               <DropdownMenuItem asChild>
                 <Link href="/me" className="cursor-pointer">
                   <IconUserCircle />
-                  Account
+                  Tài khoản
                 </Link>
               </DropdownMenuItem>
               <DropdownMenuItem>
                 <IconCreditCard />
                 Billing
               </DropdownMenuItem>
-              <DropdownMenuItem>
-                <IconNotification />
-                Notifications
-              </DropdownMenuItem>
             </DropdownMenuGroup>
             <DropdownMenuSeparator />
             <DropdownMenuItem onClick={logout}>
               <IconLogout />
-              Log out
+              Đăng xuất
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
