@@ -5,7 +5,6 @@ import {
   IconCreditCard,
   IconDotsVertical,
   IconLogout,
-  IconNotification,
   IconUserCircle,
 } from "@tabler/icons-react"
 import Link from "next/link"
@@ -116,10 +115,12 @@ export function NavUser({
                   <IconUserCircle />
                   Tài khoản
                 </Link>
-              </DropdownMenuItem>
-              <DropdownMenuItem>
-                <IconCreditCard />
-                Billing
+              </DropdownMenuItem>    
+              <DropdownMenuItem asChild >
+                <Link href="/me/update" className="cursor-pointer">
+                  <IconCreditCard />
+                  Cập nhật tài khoản  
+                </Link>
               </DropdownMenuItem>
             </DropdownMenuGroup>
             <DropdownMenuSeparator />

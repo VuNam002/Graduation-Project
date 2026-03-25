@@ -90,6 +90,7 @@ builder.Services.AddSingleton<CameraStreamService>();
 builder.Services.AddScoped<EmailService>();
 builder.Services.AddSingleton<FaceRecognitionService>(); 
 builder.Services.AddSingleton<FaceMatcherService>();
+builder.Services.AddHttpClient<AIAssistantService>();
 
 var modelPath = Path.GetFullPath(Path.Combine(builder.Environment.ContentRootPath, "..", "..", "..", "AITooling", "yolo_model", "best.onnx"));
 if (!File.Exists(modelPath)) throw new FileNotFoundException($"Model file not found at: {modelPath}");
