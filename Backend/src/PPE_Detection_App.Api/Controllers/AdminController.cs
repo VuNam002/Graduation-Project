@@ -1,5 +1,6 @@
 ﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Models.DTO;
 using PPE_Detection_App.Api.Models;
 using PPE_Detection_App.Api.Models.DTO;
 using PPE_Detection_App.Api.Services;
@@ -175,5 +176,40 @@ namespace PPE_Detection_App.Api.Controllers
                 return StatusCode(500, new { success = false, message = "Da xay ra loi khi lay thong tin tai khoan." });
             }
         }
-    } 
+
+        [Authorize]
+        [HttpPatch("me")]
+        public async Task<IActionResult> UpdateMeAccount([FromBody] UpdateMeRequest request)
+        {
+            try
+            {
+                var username = User.FindFirst(ClaimTypes.NameIdentifier)?.Value
+                               ?? User.Identity?.Name;
+
+                if (string.IsNullOrEmpty(username))
+                {
+                    return Unauthorized(new { success = false, message = "Khong tim thay thong tin nguoi dung." });
+                }
+
+                var updateDto = new UpdateAdminUserDto
+                {
+                    Username = username,
+                    FullName = request.FullName,
+                    PasswordHash = request.Password 
+                };
+
+                var result = await _authService.UpdateAccountAsync(updateDto);
+                if (!result.Success)
+                {
+                    return BadRequest(new { success = false, message = result.Message });
+                }
+                return Ok(new { success = true, message = "Cap nhat thong tin thanh cong." });
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error in UpdateMeAccount: {ex.Message}");
+                return StatusCode(500, new { success = false, message = "Da xay ra loi khi cap nhat thong tin ca nhan." });
+            }
+        }
+    }
 }
