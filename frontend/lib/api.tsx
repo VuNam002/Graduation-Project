@@ -413,6 +413,13 @@ export async function fetchMeAccount(): Promise<MeAccountResponse> {
     headers: getAuthHeaders(),
   });
 }
+export async function fetchUpdateMeAccount(account: { fullName: string; password?: string }): Promise<{ success: boolean; message?: string }> {
+  return api<{ success: boolean; message?: string }>(`${API_URL}/Admin/me`, {
+    method: 'PATCH',
+    headers: getAuthHeaders(),
+    body: JSON.stringify(account),
+  });
+}
 
 export async function fetchDeleteEmployee(employee_Id: number): Promise<{ success: boolean; message?: string }> {
   return api<{ success: boolean; message?: string }>(`${API_URL}/Employee/${employee_Id}`, {
