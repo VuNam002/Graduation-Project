@@ -83,20 +83,13 @@ export function SectionCards() {
           <CardTitle className="text-2xl font-semibold tabular-nums @[250px]/card:text-3xl">
             {trend.currentPeriod.count}
           </CardTitle>
-          <CardAction >
-            <Badge variant="outline" className={trendColor} >
-              <TrendIcon className="mr-1 size-3" />
-              {trend.change.percentage}%
-            </Badge>
-          </CardAction>
         </CardHeader>
         <CardFooter className="flex-col items-start gap-1.5 text-sm">
           <div className="line-clamp-1 flex gap-2 font-medium items-center">
-            {trend.change.text} 
-            <TrendIcon className={`size-4 ${trendColor}`} />
+            Kỳ trước: {trend.previousPeriod.count}
           </div>
           <div className="text-muted-foreground">
-            So với kỳ trước ({trend.previousPeriod.count})
+            Ngày {new Date(todaySummary.date || "").toLocaleDateString('vi-VN')}
           </div>
         </CardFooter>
       </Card>
