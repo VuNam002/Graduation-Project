@@ -9,6 +9,7 @@ import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
 import { ChartLineDots } from "@/components/chart-line-dots";
 import { WidgetsBarChart } from "@/components/barChart";
 import { NewViolationsRadial } from "@/components/radialChart";
+import {ChartLineMultiple} from "@/components/chart-line-multiple";
 
 
 export default function Page() {
@@ -39,6 +40,7 @@ export default function Page() {
               <div className="px-4 lg:px-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 <NewViolationsRadial />
                 <WidgetsBarChart />
+                <ChartLineMultiple/>
               </div>
             </div>
           </div>

@@ -1,4 +1,4 @@
-import { LoginResponse, AccountDetail,MeAccountResponse, fetchGetAllEmployeeResponse, DashboardResponse, RecentViolationsResponse, DashboardMonthlyResponse, DashboardWidgetsResponse, Account, CameraResponse, PaginatedViolationsResponse, ViolationCategory, ViolationLog, System } from './types';
+import { LoginResponse, AccountDetail,MeAccountResponse, fetchGetAllEmployeeResponse, DashboardResponse, RecentViolationsResponse, DashboardMonthlyResponse, DashboardWidgetsResponse, Account, CameraResponse, PaginatedViolationsResponse, ViolationCategory, ViolationLog, System, DashboardMultilineResponse, DashboardMultilineParams } from './types';
 
 const API_URL = 'https://localhost:7215/api';
 async function api<T>(url: string, options: RequestInit = {}): Promise<T> {
@@ -155,6 +155,25 @@ export async function fetchDashboardWidgets(): Promise<DashboardWidgetsResponse>
     headers: getAuthHeaders(),
   });
 }
+
+export async function fetchDashboardMultiline(
+  params?: DashboardMultilineParams
+): Promise<DashboardMultilineResponse> {
+  const query = new URLSearchParams();
+
+  if (params?.daysRange !== undefined) query.append('daysRange', String(params.daysRange));
+  if (params?.startDate) query.append('startDate', params.startDate);
+  if (params?.endDate) query.append('endDate', params.endDate);
+
+  const queryString = query.toString();
+  const url = `${API_URL}/Dashboard/violations-multiline${queryString ? `?${queryString}` : ''}`;
+
+  return api<DashboardMultilineResponse>(url, {
+    method: 'GET',
+    headers: getAuthHeaders(),
+  });
+}
+
 
 export interface DashboardMonthlyParams {
   year?: number;

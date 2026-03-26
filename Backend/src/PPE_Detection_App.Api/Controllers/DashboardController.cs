@@ -518,6 +518,88 @@ namespace PPE_Detection_App.Api.Controllers
                 });
             }
         }
+        [HttpGet("violations-multiline")]
+        public async Task<IActionResult> GetViolationsMultiLine(
+     [FromQuery] int? daysRange = 7,
+     [FromQuery] DateTime? startDate = null,
+     [FromQuery] DateTime? endDate = null,
+     [FromQuery] string? categoryIds = null)
+        {
+            try
+            {
+                var today = DateTime.Today;
+                var resolvedEnd = endDate ?? today;
+                var resolvedStart = startDate ?? resolvedEnd.AddDays(-(daysRange!.Value - 1));
+
+                if (resolvedStart > resolvedEnd)
+                    return BadRequest(new { success = false, error = "startDate phải nhỏ hơn hoặc bằng endDate" });
+
+                var totalDays = (resolvedEnd - resolvedStart).Days + 1;
+                var dateRange = Enumerable.Range(0, totalDays)
+                    .Select(i => resolvedStart.AddDays(i))
+                    .ToList();
+
+                List<string>? filterIds = null;
+                if (!string.IsNullOrWhiteSpace(categoryIds))
+                {
+                    filterIds = categoryIds.Split(',', StringSplitOptions.RemoveEmptyEntries)
+                                           .Select(id => id.Trim())
+                                           .ToList();
+                }
+
+                var rawStats = await _dashboardService.GetMultiLineChartDataAsync(resolvedStart, resolvedEnd, filterIds);
+
+                string[] defaultColors = { "#FF6384", "#36A2EB", "#FFCE56", "#4BC0C0", "#9966FF", "#FF9F40", "#8AC926", "#1982C4", "#F15BB5", "#00BBF9" };
+                int colorIndex = 0;
+
+                var datasets = rawStats
+                    .GroupBy(s => s.CategoryId)
+                    .Select(g =>
+                    {
+                        string color = !string.IsNullOrWhiteSpace(g.First().ColorCode)
+                                       ? g.First().ColorCode!
+                                       : defaultColors[colorIndex++ % defaultColors.Length];
+
+                        var dataByDate = g.ToDictionary(s => s.Date.Date, s => s.TotalCount);
+
+                        return new
+                        {
+                            categoryId = g.Key,
+                            // Nếu DisplayName null thì lấy luôn CategoryId làm nhãn
+                            label = !string.IsNullOrWhiteSpace(g.First().DisplayName) ? g.First().DisplayName : g.Key,
+                            borderColor = color,
+                            backgroundColor = HexToRgba(color, 0.1),
+                            fill = false,
+                            tension = 0.3,
+                            data = dateRange
+                                .Select(d => dataByDate.TryGetValue(d, out var count) ? count : 0)
+                                .ToArray()
+                        };
+                    });
+
+                return Ok(new
+                {
+                    success = true,
+                    generatedAt = DateTime.UtcNow,
+                    period = new
+                    {
+                        startDate = resolvedStart.ToString("yyyy-MM-dd"),
+                        endDate = resolvedEnd.ToString("yyyy-MM-dd"),
+                        days = totalDays
+                    },
+                    chartData = new
+                    {
+                        labels = dateRange.Select(d => d.ToString("yyyy-MM-dd")).ToArray(),
+                        datasets = datasets
+                    }
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error fetching multi-line chart data");
+                return StatusCode(500, new { success = false, error = "Lỗi khi lấy dữ liệu biểu đồ", detail = ex.Message });
+            }
+        }
 
         // ==================== HELPER METHODS ====================
 
@@ -535,6 +617,27 @@ namespace PPE_Detection_App.Api.Controllers
                 return $"{(int)timeSpan.TotalDays} ngày trước";
 
             return dateTime.ToString("dd/MM/yyyy HH:mm");
+        }
+        private static string HexToRgba(string hex, double alpha)
+        {
+            if (string.IsNullOrWhiteSpace(hex)) return $"rgba(107,114,128,{alpha})";
+
+            hex = hex.TrimStart('#');
+            if (hex.Length == 3) hex = new string(new char[] { hex[0], hex[0], hex[1], hex[1], hex[2], hex[2] });
+
+            if (hex.Length != 6) return $"rgba(107,114,128,{alpha})";
+
+            try
+            {
+                var r = Convert.ToInt32(hex[..2], 16);
+                var g = Convert.ToInt32(hex[2..4], 16);
+                var b = Convert.ToInt32(hex[4..6], 16);
+                return $"rgba({r},{g},{b},{alpha})";
+            }
+            catch
+            {
+                return $"rgba(107,114,128,{alpha})";
+            }
         }
     }
 }

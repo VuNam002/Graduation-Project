@@ -169,5 +169,51 @@ namespace PPE_Detection_App.Api.Services
                 IsIncreasing = changePercentage > 0
             };
         }
+        public async Task<IEnumerable<ViolationStatsByDateAndCategory>> GetMultiLineChartDataAsync(
+    DateTime startDate,
+    DateTime endDate,
+    IEnumerable<string>? categoryIds = null)
+        {
+            using var connection = new SqlConnection(_connectionString);
+            var conditions = new List<string>
+    {
+        "vl.Detected_Time >= @StartDate",
+        "vl.Detected_Time <  @EndDate",
+        "vl.Is_Deleted = 0"
+    };
+            var parameters = new DynamicParameters();
+            parameters.Add("StartDate", startDate);
+            parameters.Add("EndDate", endDate.AddDays(1));
+
+            // Đảm bảo ép kiểu sang List để Dapper map lệnh IN chính xác
+            var categoryList = categoryIds?.ToList();
+            if (categoryList != null && categoryList.Any())
+            {
+                conditions.Add("vl.Category_Id IN @CategoryIds");
+                parameters.Add("CategoryIds", categoryList);
+            }
+
+            string whereClause = string.Join(" AND ", conditions);
+            string sql = $@"
+        SELECT 
+            CAST(vl.Detected_Time AS DATE)                  AS Date,
+            vl.Category_Id                                  AS CategoryId,
+            vc.Display_Name                                 AS DisplayName,
+            vc.Color_Code                                   AS ColorCode,
+            vc.Severity_Level                               AS SeverityLevel,
+            COUNT(vl.Id)                                    AS TotalCount,
+            SUM(CASE WHEN vl.Status = 0 THEN 1 ELSE 0 END) AS NewCount,
+            SUM(CASE WHEN vl.Status = 1 THEN 1 ELSE 0 END) AS ViewedCount,
+            SUM(CASE WHEN vl.Status = 2 THEN 1 ELSE 0 END) AS FalseAlertCount
+        FROM Violation_Log vl
+        LEFT JOIN Violation_Category vc ON vl.Category_Id = vc.Id
+        WHERE {whereClause}
+        GROUP BY 
+            CAST(vl.Detected_Time AS DATE),
+            vl.Category_Id, vc.Display_Name, vc.Color_Code, vc.Severity_Level
+        ORDER BY Date ASC, TotalCount DESC";
+
+            return await connection.QueryAsync<ViolationStatsByDateAndCategory>(sql, parameters);
+        }
     }
 }

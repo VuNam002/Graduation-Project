@@ -19,6 +19,12 @@ export interface AccountDetail {
   updatedAt?: string;
 }
 
+export interface DashboardMultilineParams {
+  daysRange?: number;
+  startDate?: string;
+  endDate?: string;
+}
+
 export interface AuthState {
   user: AccountDetail | null;
   isAuthenticated: boolean;
@@ -195,6 +201,26 @@ export interface DashboardMonthlyResponse {
   summary: MonthlySummary;
   dailyStats: DailyStat[];
   categoryStats: CategoryStat[];
+}
+
+export interface MultilineDataset {
+  categoryId: string;
+  label: string;
+  borderColor: string;
+  backgroundColor: string;
+  fill: boolean;
+  tension: number;
+  data: number[];
+}
+
+export interface DashboardMultilineResponse {
+  success: boolean;
+  generatedAt: string;
+  period: DashboardPeriod;
+  chartData: {
+    labels: string[];
+    datasets: MultilineDataset[];
+  };
 }
 
 export interface WidgetItem {
