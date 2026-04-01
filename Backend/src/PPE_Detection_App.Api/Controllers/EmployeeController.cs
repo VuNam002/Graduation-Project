@@ -1,4 +1,6 @@
-﻿﻿﻿﻿using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Hosting;
+﻿﻿﻿using Microsoft.AspNetCore.Mvc;
 using Models.DTO;
 using PPE_Detection_App.Api.Models;
 using PPE_Detection_App.Api.Models.DTO;
@@ -6,10 +8,9 @@ using PPE_Detection_App.Api.Services;
 using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.PixelFormats;
 using System;
+using System.IO;
 using System.Text.Json;
 using System.Threading.Tasks;
-using Microsoft.AspNetCore.Hosting;
-using System.IO;
 
 namespace PPE_Detection_App.Api.Controllers
 {
@@ -55,6 +56,7 @@ namespace PPE_Detection_App.Api.Controllers
             }
         }
         [HttpDelete("{Employee_Id}")]
+        [Authorize(Roles = "Admin")]
         public async Task<IActionResult> DeleteEmployee(int Employee_Id)
         {
             try
@@ -70,8 +72,9 @@ namespace PPE_Detection_App.Api.Controllers
         }
         /// <summary>
         /// API Đăng ký khuôn mặt nhân viên (eKYC)
-        /// </summary>
+        /// </summary> 
         [HttpPost("enroll")]
+        [Authorize(Roles = "Admin")]
         public async Task<IActionResult> EnrollEmployee([FromForm] string employeeCode, [FromForm] string fullName, [FromForm] string department, [FromForm] List<IFormFile> faceImages)
         {
             if (faceImages == null || !faceImages.Any())
