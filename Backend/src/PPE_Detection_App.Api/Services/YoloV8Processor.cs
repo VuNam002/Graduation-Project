@@ -109,21 +109,6 @@ namespace PPE_Detection_App.Api.Services
                 var width = prediction[2];
                 var height = prediction[3];
 
-                var maxScore = 0.0f;
-                var labelIndex = -1;
-
-                for (int i = 4; i < prediction.Length; i++)
-                {
-                    if (prediction[i] > maxScore)
-                    {
-                        maxScore = prediction[i];
-                        labelIndex = i - 4;
-                    }
-                }
-
-                if (maxScore < confidenceThreshold || labelIndex < 0 || labelIndex >= _classLabels.Length)
-                    continue;
-
                 var x = (centerX - width / 2) * scaleX;
                 var y = (centerY - height / 2) * scaleY;
                 var boxWidth = width * scaleX;
@@ -134,7 +119,15 @@ namespace PPE_Detection_App.Api.Services
                 boxWidth = Math.Min(boxWidth, originalWidth - x);
                 boxHeight = Math.Min(boxHeight, originalHeight - y);
 
-                results.Add(new DetectionResult(_classLabels[labelIndex], maxScore, new BoundingBox(x, y, boxWidth, boxHeight)));
+                for (int i = 4; i < prediction.Length; i++)
+                {
+                    var score = prediction[i];
+                    if (score >= confidenceThreshold)
+                    {
+                        var labelIndex = i - 4;
+                        results.Add(new DetectionResult(_classLabels[labelIndex], score, new BoundingBox(x, y, boxWidth, boxHeight)));
+                    }
+                }
             }
 
             return ApplyNms(results, nmsThreshold);

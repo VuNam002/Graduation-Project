@@ -1,4 +1,4 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿﻿using Microsoft.AspNetCore.Mvc;
 using PPE_Detection_App.Api.Services;
 
 namespace PPE_Detection_App.Api.Controllers
@@ -27,21 +27,29 @@ namespace PPE_Detection_App.Api.Controllers
         /// </summary>
         [HttpGet("overview")]
         public async Task<IActionResult> GetDashboardOverview(
-            [FromQuery] int daysRange = 7)
+            [FromQuery] int daysRange = 7,
+            [FromQuery] DateTime? startDate = null,
+            [FromQuery] DateTime? endDate = null)
         {
             try
             {
                 var today = DateTime.Today;
-                var startDate = today.AddDays(-daysRange + 1);
+                var resolvedEndDate = endDate ?? today;
+                var resolvedStartDate = startDate ?? resolvedEndDate.AddDays(-daysRange + 1);
 
-                _logger.LogInformation("Fetching dashboard data from {StartDate} to {EndDate}", startDate, today);
+                if (resolvedStartDate > resolvedEndDate)
+                    return BadRequest(new { success = false, error = "startDate phải nhỏ hơn hoặc bằng endDate" });
 
-                var todaySummaryTask = _dashboardService.GetDashboardSummaryAsync(today);
-                var violationsByDateTask = _dashboardService.GetViolationStatsByDateAsync(startDate, today);
-                var violationsByCategoryTask = _dashboardService.GetViolationStatsByCategoryAsync(startDate, today);
-                var topViolationsTask = _dashboardService.GetTopViolationsAsync(5, startDate, today);
-                var peakHoursTask = _dashboardService.GetViolationStatsByHourAsync(startDate, today);
-                var trendTask = _dashboardService.GetViolationTrendAsync(startDate, today);
+                var totalDays = (resolvedEndDate - resolvedStartDate).Days + 1;
+
+                _logger.LogInformation("Fetching dashboard data from {StartDate} to {EndDate}", resolvedStartDate, resolvedEndDate);
+
+                var todaySummaryTask = _dashboardService.GetDashboardSummaryAsync(resolvedEndDate);
+                var violationsByDateTask = _dashboardService.GetViolationStatsByDateAsync(resolvedStartDate, resolvedEndDate);
+                var violationsByCategoryTask = _dashboardService.GetViolationStatsByCategoryAsync(resolvedStartDate, resolvedEndDate);
+                var topViolationsTask = _dashboardService.GetTopViolationsAsync(5, resolvedStartDate, resolvedEndDate);
+                var peakHoursTask = _dashboardService.GetViolationStatsByHourAsync(resolvedStartDate, resolvedEndDate);
+                var trendTask = _dashboardService.GetViolationTrendAsync(resolvedStartDate, resolvedEndDate);
 
                 await Task.WhenAll(
                     todaySummaryTask,
@@ -59,6 +67,9 @@ namespace PPE_Detection_App.Api.Controllers
                 var peakHours = await peakHoursTask;
                 var trend = await trendTask;
 
+                var dateRange = Enumerable.Range(0, totalDays).Select(i => resolvedStartDate.AddDays(i)).ToList();
+                var violationsByDateDict = violationsByDate.ToDictionary(v => v.Date.Date);
+
                 string? topCategoryName = null;
                 if (!string.IsNullOrEmpty(todaySummary.TopCategory))
                 {
@@ -73,15 +84,15 @@ namespace PPE_Detection_App.Api.Controllers
                     generatedAt = DateTime.UtcNow,
                     period = new
                     {
-                        startDate = startDate.ToString("yyyy-MM-dd"),
-                        endDate = today.ToString("yyyy-MM-dd"),
-                        days = daysRange
+                        startDate = resolvedStartDate.ToString("yyyy-MM-dd"),
+                        endDate = resolvedEndDate.ToString("yyyy-MM-dd"),
+                        days = totalDays
                     },
 
                     // TỔNG QUAN HÔM NAY (CARDS)
                     todaySummary = new
                     {
-                        date = today.ToString("yyyy-MM-dd"),
+                        date = resolvedEndDate.ToString("yyyy-MM-dd"),
                         totalViolations = todaySummary.TotalViolations,
                         newViolations = todaySummary.NewViolations,
                         viewedViolations = todaySummary.ViewedViolations,
@@ -97,39 +108,42 @@ namespace PPE_Detection_App.Api.Controllers
                     // BIỂU ĐỒ XU HƯỚNG (LINE CHART)
                     violationsTrend = new
                     {
-                        labels = violationsByDate.Select(d => d.Date.ToString("yyyy-MM-dd")).ToArray(),
+                        labels = dateRange.Select(d => d.ToString("yyyy-MM-dd")).ToArray(),
                         datasets = new[]
                         {
                             new
                             {
                                 label = "Tổng vi phạm",
-                                data = violationsByDate.Select(d => d.TotalCount).ToArray(),
+                                data = dateRange.Select(d => violationsByDateDict.TryGetValue(d, out var v) ? v.TotalCount : 0).ToArray(),
                                 borderColor = "#3b82f6",
                                 backgroundColor = "rgba(59, 130, 246, 0.1)"
                             },
                             new
                             {
                                 label = "Vi phạm mới",
-                                data = violationsByDate.Select(d => d.NewCount).ToArray(),
+                                data = dateRange.Select(d => violationsByDateDict.TryGetValue(d, out var v) ? v.NewCount : 0).ToArray(),
                                 borderColor = "#ef4444",
                                 backgroundColor = "rgba(239, 68, 68, 0.1)"
                             },
                             new
                             {
                                 label = "Đã xử lý",
-                                data = violationsByDate.Select(d => d.ViewedCount).ToArray(),
+                                data = dateRange.Select(d => violationsByDateDict.TryGetValue(d, out var v) ? v.ViewedCount : 0).ToArray(),
                                 borderColor = "#10b981",
                                 backgroundColor = "rgba(16, 185, 129, 0.1)"
                             }
                         },
-                        rawData = violationsByDate.Select(d => new
+                        rawData = dateRange.Select(d => 
                         {
-                            date = d.Date.ToString("yyyy-MM-dd"),
-                            total = d.TotalCount,
-                            new_count = d.NewCount,
-                            viewed = d.ViewedCount,
-                            falseAlert = d.FalseAlertCount
-                        })
+                            var hasData = violationsByDateDict.TryGetValue(d, out var v);
+                            return new {
+                                date = d.ToString("yyyy-MM-dd"),
+                                total = hasData ? v.TotalCount : 0,
+                                new_count = hasData ? v.NewCount : 0,
+                                viewed = hasData ? v.ViewedCount : 0,
+                                falseAlert = hasData ? v.FalseAlertCount : 0
+                            };
+                        }).ToArray()
                     },
 
                     // PHÂN BỐ THEO LOẠI (PIE CHART)
@@ -170,22 +184,22 @@ namespace PPE_Detection_App.Api.Controllers
                     // GIỜ CAO ĐIỂM (HEATMAP / BAR CHART)
                     peakHours = new
                     {
-                        labels = peakHours.Select(h => $"{h.Hour:D2}:00").ToArray(),
+                        labels = Enumerable.Range(0, 24).Select(h => $"{h:D2}:00").ToArray(),
                         datasets = new[]
                         {
                             new
                             {
                                 label = "Số vi phạm",
-                                data = peakHours.Select(h => h.Count).ToArray(),
+                                data = Enumerable.Range(0, 24).Select(h => peakHours.FirstOrDefault(p => p.Hour == h)?.Count ?? 0).ToArray(),
                                 backgroundColor = "#f59e0b"
                             }
                         },
-                        rawData = peakHours.Select(h => new
+                        rawData = Enumerable.Range(0, 24).Select(h => new
                         {
-                            hour = h.Hour,
-                            timeRange = $"{h.Hour:D2}:00 - {h.Hour:D2}:59",
-                            count = h.Count
-                        })
+                            hour = h,
+                            timeRange = $"{h:D2}:00 - {h:D2}:59",
+                            count = peakHours.FirstOrDefault(p => p.Hour == h)?.Count ?? 0
+                        }).ToArray()
                     },
 
                     // XU HƯỚNG SO VỚI KỲ TRƯỚC
@@ -193,14 +207,14 @@ namespace PPE_Detection_App.Api.Controllers
                     {
                         currentPeriod = new
                         {
-                            startDate = startDate.ToString("yyyy-MM-dd"),
-                            endDate = today.ToString("yyyy-MM-dd"),
+                            startDate = resolvedStartDate.ToString("yyyy-MM-dd"),
+                            endDate = resolvedEndDate.ToString("yyyy-MM-dd"),
                             count = trend.CurrentPeriodCount
                         },
                         previousPeriod = new
                         {
-                            startDate = startDate.AddDays(-daysRange).ToString("yyyy-MM-dd"),
-                            endDate = startDate.AddDays(-1).ToString("yyyy-MM-dd"),
+                            startDate = resolvedStartDate.AddDays(-totalDays).ToString("yyyy-MM-dd"),
+                            endDate = resolvedStartDate.AddDays(-1).ToString("yyyy-MM-dd"),
                             count = trend.PreviousPeriodCount
                         },
                         change = new
@@ -324,14 +338,18 @@ namespace PPE_Detection_App.Api.Controllers
                         peakDay = violationsByDate.OrderByDescending(d => d.TotalCount).FirstOrDefault()?.Date.ToString("yyyy-MM-dd"),
                         peakDayCount = violationsByDate.OrderByDescending(d => d.TotalCount).FirstOrDefault()?.TotalCount ?? 0
                     },
-                    dailyStats = violationsByDate.Select(d => new
+                    dailyStats = Enumerable.Range(0, (endDate - startDate).Days + 1).Select(i => startDate.AddDays(i)).Select(d => 
                     {
-                        date = d.Date.ToString("yyyy-MM-dd"),
-                        dayOfWeek = d.Date.DayOfWeek.ToString(),
-                        total = d.TotalCount,
-                        new_count = d.NewCount,
-                        viewed = d.ViewedCount,
-                        falseAlert = d.FalseAlertCount
+                        var v = violationsByDate.FirstOrDefault(x => x.Date.Date == d.Date);
+                        return new
+                        {
+                            date = d.ToString("yyyy-MM-dd"),
+                            dayOfWeek = d.DayOfWeek.ToString(),
+                            total = v?.TotalCount ?? 0,
+                            new_count = v?.NewCount ?? 0,
+                            viewed = v?.ViewedCount ?? 0,
+                            falseAlert = v?.FalseAlertCount ?? 0
+                        };
                     }),
                     categoryStats = violationsByCategory.Select(c => new
                     {
@@ -388,6 +406,8 @@ namespace PPE_Detection_App.Api.Controllers
                 var peakHours = await _dashboardService.GetViolationStatsByHourAsync(startDate, endDate);
 
                 var totalDays = (endDate - startDate).Days + 1;
+                var dateRange = Enumerable.Range(0, totalDays).Select(i => startDate.AddDays(i)).ToList();
+                var violationsByDateDict = violationsByDate.ToDictionary(v => v.Date.Date);
 
                 return Ok(new
                 {
@@ -406,10 +426,10 @@ namespace PPE_Detection_App.Api.Controllers
                         resolvedViolations = violationsByDate.Sum(d => d.ViewedCount),
                         falseAlerts = violationsByDate.Sum(d => d.FalseAlertCount)
                     },
-                    dailyTrend = violationsByDate.Select(d => new
+                    dailyTrend = dateRange.Select(d => new
                     {
-                        date = d.Date.ToString("yyyy-MM-dd"),
-                        total = d.TotalCount
+                        date = d.ToString("yyyy-MM-dd"),
+                        total = violationsByDateDict.TryGetValue(d, out var v) ? v.TotalCount : 0
                     }),
                     categoryBreakdown = violationsByCategory.Select(c => new
                     {
@@ -418,10 +438,10 @@ namespace PPE_Detection_App.Api.Controllers
                         count = c.Count,
                         percentage = c.Percentage
                     }),
-                    peakHours = peakHours.Select(h => new
+                    peakHours = Enumerable.Range(0, 24).Select(h => new
                     {
-                        hour = h.Hour,
-                        count = h.Count
+                        hour = h,
+                        count = peakHours.FirstOrDefault(p => p.Hour == h)?.Count ?? 0
                     })
                 });
             }

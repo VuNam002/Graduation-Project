@@ -1,4 +1,4 @@
-﻿﻿﻿﻿﻿﻿using Microsoft.AspNetCore.Mvc;
+﻿﻿﻿﻿﻿﻿﻿﻿using Microsoft.AspNetCore.Mvc;
 using PPE_Detection_App.Api.Services;
 using PPE_Detection_App.Api.Models;
 using ClosedXML.Excel; 
@@ -253,18 +253,20 @@ namespace PPE_Detection_App.Api.Controllers
                 var start = startDate ?? end.AddDays(-6);
 
                 var stats = await _dashboardService.GetViolationStatsByDateAsync(start, end);
+                var dateRange = Enumerable.Range(0, (end - start).Days + 1).Select(i => start.AddDays(i)).ToList();
+                var statsDict = stats.ToDictionary(s => s.Date.Date);
 
                 return Ok(new
                 {
                     success = true,
                     period = new { startDate = start, endDate = end },
-                    data = stats.Select(s => new
+                    data = dateRange.Select(d => new
                     {
-                        date = s.Date.ToString("yyyy-MM-dd"),
-                        totalCount = s.TotalCount,
-                        newCount = s.NewCount,
-                        viewedCount = s.ViewedCount,
-                        falseAlertCount = s.FalseAlertCount
+                        date = d.ToString("yyyy-MM-dd"),
+                        totalCount = statsDict.TryGetValue(d, out var s) ? s.TotalCount : 0,
+                        newCount = statsDict.TryGetValue(d, out var s2) ? s2.NewCount : 0,
+                        viewedCount = statsDict.TryGetValue(d, out var s3) ? s3.ViewedCount : 0,
+                        falseAlertCount = statsDict.TryGetValue(d, out var s4) ? s4.FalseAlertCount : 0
                     })
                 });
             }
@@ -350,16 +352,17 @@ namespace PPE_Detection_App.Api.Controllers
                 var start = startDate ?? end.AddDays(-6);
 
                 var stats = await _dashboardService.GetViolationStatsByHourAsync(start, end);
+                var statsDict = stats.ToDictionary(s => s.Hour);
 
                 return Ok(new
                 {
                     success = true,
                     period = new { startDate = start, endDate = end },
-                    data = stats.Select(s => new
+                    data = Enumerable.Range(0, 24).Select(h => new
                     {
-                        hour = s.Hour,
-                        timeRange = $"{s.Hour:D2}:00 - {s.Hour:D2}:59",
-                        count = s.Count
+                        hour = h,
+                        timeRange = $"{h:D2}:00 - {h:D2}:59",
+                        count = statsDict.TryGetValue(h, out var s) ? s.Count : 0
                     })
                 });
             }

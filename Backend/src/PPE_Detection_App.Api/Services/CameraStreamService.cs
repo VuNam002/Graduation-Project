@@ -157,11 +157,12 @@ namespace PPE_Detection_App.Api.Services
                         }
                     }
 
+                    var drawnTextRects = new List<RectangleF>();
                     foreach (var detection in detections)
                     {
                         bool isViolation = _violationLabels.Contains(detection.Label);
                         bool isOnCooldown = isViolation && !eligibleDetections.Contains(detection);
-                        DrawBoundingBox(imageForProcessing, detection, isViolation, isOnCooldown);
+                        DrawBoundingBox(imageForProcessing, detection, isViolation, isOnCooldown, drawnTextRects);
                     }
 
                     if (eligibleDetections.Any())
@@ -230,7 +231,7 @@ namespace PPE_Detection_App.Api.Services
             return $"data:image/jpeg;base64,{base64String}";
         }
 
-        private void DrawBoundingBox(Image image, DetectionResult detection, bool isViolation = false, bool isOnCooldown = false)
+        private void DrawBoundingBox(Image image, DetectionResult detection, bool isViolation, bool isOnCooldown, List<RectangleF> drawnTextRects)
         {
             var box = detection.Box;
             var label = $"{detection.Label} ({detection.Confidence:P0})";
@@ -248,6 +249,32 @@ namespace PPE_Detection_App.Api.Services
                     textLocation.Y = rect.Top + 5;
 
                 var textBackground = new RectangleF(textLocation.X, textLocation.Y, textSize.Width + 4, textSize.Height + 2);
+                
+                // Cơ chế thông minh: Tránh việc các nhãn chữ (label) bị in đè lên nhau
+                bool isOverlapping = true;
+                int attempts = 0;
+                while (isOverlapping && attempts < 10)
+                {
+                    isOverlapping = false;
+                    foreach (var drawnRect in drawnTextRects)
+                    {
+                        if (textBackground.IntersectsWith(drawnRect))
+                        {
+                            isOverlapping = true;
+                            textLocation.Y -= (textSize.Height + 2); // Đẩy chữ lên trên
+                            if (textLocation.Y < 0)
+                            {
+                                textLocation.Y = rect.Top + 5 + (attempts + 1) * (textSize.Height + 2); // Trôi khỏi màn hình thì đẩy vào trong khung
+                            }
+                            textBackground.Y = textLocation.Y;
+                            break;
+                        }
+                    }
+                    attempts++;
+                }
+
+                drawnTextRects.Add(textBackground);
+
                 x.Fill(Color.Black, textBackground);
                 x.DrawText(label, _font, color, new PointF(textLocation.X + 2, textLocation.Y + 1));
             });
@@ -388,20 +415,25 @@ namespace PPE_Detection_App.Api.Services
                     _logger.LogWarning($"Loi trich xuat khuon mat: {ex.Message}");
                 }
 
-                var log = new ViolationLog
+                var distinctLabels = group.Select(g => g.Label).Distinct().ToList();
+                foreach (var label in distinctLabels)
                 {
-                    Category_Id = combinedLabels, 
-                    Image_Path = relativePath,
-                    Confidence_Score = avgConfidence,
-                    Box_X = minX,
-                    Box_Y = minY,
-                    Box_W = maxX - minX,
-                    Box_H = maxY - minY,
-                    Detected_Time = DateTime.Now,
-                    Status = 0,
-                    Employee_Id = matchedEmployeeId
-                };
-                await repo.InsertViolationLogAsync(log);
+                    var specificDetection = group.First(g => g.Label == label);
+                    var log = new ViolationLog
+                    {
+                        Category_Id = label, 
+                        Image_Path = relativePath,
+                        Confidence_Score = specificDetection.Confidence,
+                        Box_X = specificDetection.Box.Left,
+                        Box_Y = specificDetection.Box.Top,
+                        Box_W = specificDetection.Box.Width,
+                        Box_H = specificDetection.Box.Height,
+                        Detected_Time = DateTime.Now,
+                        Status = 0,
+                        Employee_Id = matchedEmployeeId
+                    };
+                    await repo.InsertViolationLogAsync(log);
+                }
             }
 
             _logger.LogInformation($"{groupedViolations.Count} nhom vi pham da duoc ghi nhan. Anh luu lai {imagePath}");
@@ -410,7 +442,6 @@ namespace PPE_Detection_App.Api.Services
             {
                 string adminEmail = config["EmailSettings:AdminEmail"] ?? "vun197276@gmail.com";
                 string namesStr = detectedEmployeeNames.Any() ? string.Join(", ", detectedEmployeeNames) : "Khong xac ding";
-                // Gửi email 1 lần gộp tất cả tên lỗi lại cho gọn
                 string allLabels = string.Join(" | ", groupedViolations.Select(g => string.Join(",", g.Select(x => x.Label).Distinct())));
                 emailService.SendViolationEmail(adminEmail, imagePath, $"Camera Detection (Loi: {allLabels})", namesStr);
             }
