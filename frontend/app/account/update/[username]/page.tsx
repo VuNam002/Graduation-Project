@@ -4,7 +4,7 @@ import * as React from "react";
 import { useRouter, useParams } from "next/navigation";
 import { fetchDetailAccount, fetchUpdateAccount } from "@/lib/api";
 import { toast } from "sonner";
-import { Account, UserRole } from "@/lib/types";
+import { Account, UserRole, FormData } from "@/lib/types";
 import { AppSidebar } from "@/components/app-sidebar";
 import { SiteHeader } from "@/components/site-header";
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
@@ -28,12 +28,6 @@ import {
 } from "@/components/ui/select";
 import { ArrowLeft, Eye, EyeOff, Check, Loader2 } from "lucide-react";
 
-interface FormData {
-  username: string;
-  fullName: string;
-  passwordHash: string;
-  role: UserRole;
-}
 
 export default function EditAccountPage() {
   const router = useRouter();

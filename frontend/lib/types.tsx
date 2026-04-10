@@ -339,6 +339,18 @@ export interface fetchGetAllEmployeeResponse {
   avatar_url?: string
 }
 
+export interface FormData {
+  username: string;
+  fullName: string;
+  passwordHash: string;
+  role: UserRole;
+}
+
+export interface UpdateEmployee {
+  employee_Code: string;
+  full_Name: string;
+  department: string;
+}
 
 export function isLoginSuccess(response: LoginResponse): response is LoginResponse & { token: string; user: AccountDetail } {
   return !!response.token && !!response.user;

@@ -70,6 +70,31 @@ namespace PPE_Detection_App.Api.Controllers
                 return StatusCode(500, $"Loi he thong: {ex.Message}");
             }
         }
+        [HttpPatch("{Employee_Id}")]
+        [Authorize(Roles = "Admin")]
+        public async Task<IActionResult> UpdateEmployee(int Employee_Id, [FromBody] UpdateEmployee dto)
+        {
+            try
+            {
+                if (dto == null)
+                {
+                    return BadRequest("Du lieu khong hop le");
+                }
+
+                var success = await _databaseService.UpdateEmployee(Employee_Id, dto);
+
+                if (!success)
+                {
+                    return NotFound($"Khong tim thay nhan vien voi ID {Employee_Id}");
+                }
+
+                return Ok($"Da cap nhat thanh cong nhan vien voi ID {Employee_Id}");
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, $"Loi khi cap nhat nhan vien: {ex.Message}");
+            }
+        }
         /// <summary>
         /// API Đăng ký khuôn mặt nhân viên (eKYC)
         /// </summary> 

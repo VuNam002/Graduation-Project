@@ -7,6 +7,7 @@ import {
   IconSearch,
   IconIdBadge2,
   IconTrash,
+  IconEdit,
 } from "@tabler/icons-react"
 import { toast } from "sonner"
 import { useRouter } from "next/navigation"
@@ -221,6 +222,11 @@ export function EmployeesTable() {
                           <Link href={`/employee/detail/${emp.employee_Id}`}>
                             <Button variant="ghost" size="icon" title="Chi tiết nhân viên">
                               <IconIdBadge2 className="size-5 text-blue-600" />
+                            </Button>
+                          </Link>
+                          <Link href={`/employee/update/${emp.employee_Id}`}>
+                            <Button variant="ghost" size="icon" title="Chỉnh sửa nhân viên">
+                              <IconEdit className="size-5 text-yellow-500" />
                             </Button>
                           </Link>
                           <Button

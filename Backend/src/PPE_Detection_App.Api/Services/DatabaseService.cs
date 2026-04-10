@@ -671,7 +671,29 @@ namespace PPE_Detection_App.Api.Services
                 Console.WriteLine("Loi khi xoa employee: " + ex.Message);
                 return false;
             }
+        }
+        public async Task<bool> UpdateEmployee(int id, UpdateEmployee dto)
+        {
+            using var connection = new SqlConnection(_connectionString);
 
+            string sql = @"
+            UPDATE Employee
+            SET 
+                Employee_Code = @Employee_Code,
+                Full_Name = @Full_Name,
+                Department = @Department
+            WHERE Employee_Id = @Employee_Id
+            ";
+
+            var result = await connection.ExecuteAsync(sql, new
+            {
+                Employee_Id = id,
+                dto.Employee_Code,
+                dto.Full_Name,
+                dto.Department
+            });
+
+            return result > 0;
         }
 
         public async Task<string?> GetSystemConfigAsync(string key)

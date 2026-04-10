@@ -1,6 +1,6 @@
 import { LoginResponse, AccountDetail,MeAccountResponse, fetchGetAllEmployeeResponse, DashboardResponse, RecentViolationsResponse, DashboardMonthlyResponse, DashboardWidgetsResponse, Account, CameraResponse, PaginatedViolationsResponse, ViolationCategory, ViolationLog, System, DashboardMultilineResponse, DashboardMultilineParams } from './types';
 
-const API_URL = 'https://localhost:7215/api';
+const API_URL = process.env.NEXT_PUBLIC_API_URL || '';
 async function api<T>(url: string, options: RequestInit = {}): Promise<T> {
   try {     
     const headers: Record<string, string> = { ...(options.headers as any) };
@@ -31,7 +31,6 @@ async function api<T>(url: string, options: RequestInit = {}): Promise<T> {
     try {
       return JSON.parse(text) as T;
     } catch {
-      // Xử lý trường hợp backend trả về plain text (không phải JSON)
       return { success: true, message: text } as unknown as T;
     }
   } catch (error) {
@@ -437,6 +436,13 @@ export async function fetchUpdateMeAccount(account: { fullName: string; password
     method: 'PATCH',
     headers: getAuthHeaders(),
     body: JSON.stringify(account),
+  });
+}
+export async function fetUpdateEmployee(employee_Id: number, formData: FormData): Promise<{ success: boolean; message?: string }> {
+  return api<{ success: boolean; message?: string }>(`${API_URL}/Employee/${employee_Id}`, {
+    method: 'PATCH',
+    headers: getAuthHeaders(),
+    body: formData,
   });
 }
 

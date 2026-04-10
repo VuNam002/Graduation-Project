@@ -138,7 +138,6 @@ namespace PPE_Detection_App.Api.Services
                         lastConfigCheck = DateTime.UtcNow;
                     }
 
-                    // Truyền ngưỡng cấu hình vào thay vì dùng hằng số mặc định
                     var detections = yoloProcessor.ProcessImageWithThresholds(imageForProcessing, currentConf, currentNms);
                     var allViolationDetections = detections.Where(d => _violationLabels.Contains(d.Label)).ToList();
 
@@ -261,10 +260,10 @@ namespace PPE_Detection_App.Api.Services
                         if (textBackground.IntersectsWith(drawnRect))
                         {
                             isOverlapping = true;
-                            textLocation.Y -= (textSize.Height + 2); // Đẩy chữ lên trên
+                            textLocation.Y -= (textSize.Height + 2); 
                             if (textLocation.Y < 0)
                             {
-                                textLocation.Y = rect.Top + 5 + (attempts + 1) * (textSize.Height + 2); // Trôi khỏi màn hình thì đẩy vào trong khung
+                                textLocation.Y = rect.Top + 5 + (attempts + 1) * (textSize.Height + 2); 
                             }
                             textBackground.Y = textLocation.Y;
                             break;
@@ -350,7 +349,7 @@ namespace PPE_Detection_App.Api.Services
 
                             targetFaceBox = new BoundingBox(headX, headY, headWidth, headHeight);
                             hasFaceBox = true;
-                            _logger.LogInformation($"[FaceRec] Tìm thấy 'Person' chua loi {combinedLabels}, đang cat vung dau...");
+                            _logger.LogInformation($"[FaceRec] Tim thay 'Person' chua loi {combinedLabels}, đang cat vung dau...");
                             break;
                         }
                     }
