@@ -16,7 +16,6 @@ namespace PPE_Detection_App.Api.Services
             var v8Path = Path.GetFullPath(Path.Combine(env.ContentRootPath, "..", "..", "..", "AITooling", "yolo_model", "best.onnx"));
             var v11Path = Path.GetFullPath(Path.Combine(env.ContentRootPath, "..", "..", "..", "AITooling", "Yolo11_Training", "weights", "best.onnx"));
 
-            // Fallback khi chạy production (nếu các đường dẫn thư mục có thay đổi)
             if (!File.Exists(v8Path)) v8Path = Path.GetFullPath(Path.Combine(env.ContentRootPath, "AITooling", "yolo_model", "best.onnx"));
             if (!File.Exists(v11Path)) v11Path = Path.GetFullPath(Path.Combine(env.ContentRootPath, "AITooling", "Yolo11_Training", "weights", "best.onnx"));
 
@@ -133,7 +132,6 @@ namespace PPE_Detection_App.Api.Services
 
             var results = new List<DetectionResult>();
 
-            // Tính toán tỷ lệ và bù trừ viền (padding) do ảnh đầu vào dùng ResizeMode.Pad
             float gain = Math.Min((float)ModelWidth / originalWidth, (float)ModelHeight / originalHeight);
             float padX = (ModelWidth - originalWidth * gain) / 2.0f;
             float padY = (ModelHeight - originalHeight * gain) / 2.0f;
@@ -145,7 +143,6 @@ namespace PPE_Detection_App.Api.Services
                 var width = prediction[2];
                 var height = prediction[3];
 
-                // Giải mã tọa độ 1 lần cho mỗi prediction row
                 var boxWidth = width / gain;
                 var boxHeight = height / gain;
                 var x = (centerX - padX) / gain - boxWidth / 2;
@@ -156,7 +153,6 @@ namespace PPE_Detection_App.Api.Services
                 boxWidth = Math.Min(boxWidth, originalWidth - x);
                 boxHeight = Math.Min(boxHeight, originalHeight - y);
 
-                // Duyệt qua tất cả các class, cho phép đa nhãn (Multi-label) trên cùng 1 box
                 for (int i = 4; i < prediction.Length; i++)
                 {
                     var score = prediction[i];
