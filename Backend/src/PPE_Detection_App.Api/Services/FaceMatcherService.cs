@@ -13,10 +13,8 @@ namespace PPE_Detection_App.Api.Services
         private readonly FaceRecognitionService _faceRecognitionService;
         private readonly ILogger<FaceMatcherService> _logger;
 
-        // Ngưỡng quyết định. Hạ ngưỡng nhận diện xuống khoảng 0.35 để dễ bắt khuôn mặt từ camera hơn.
-        private const double MatchThreshold = 0.35;
-
-        // Tiêm DatabaseService, FaceRecognitionService và Logger vào đây
+        // Nâng ngưỡng quyết định lên 0.75 (75%) để khắt khe hơn, tránh nhận diện bừa bãi
+        private const double MatchThreshold = 0.75;
         public FaceMatcherService(DatabaseService databaseService, FaceRecognitionService faceRecognitionService, ILogger<FaceMatcherService> logger)
         {
             _databaseService = databaseService;
@@ -58,12 +56,20 @@ namespace PPE_Detection_App.Api.Services
                     }
 
                     if (knownFaceVectors == null || knownFaceVectors.Length == 0) continue;
+                    
+                    double maxSimForThisEmployee = -1.0;
+                    
                     foreach (var knownVector in knownFaceVectors)
                     {
                         if (knownVector.Length != unknownFaceVector.Length) continue;
 
                         double similarity = _faceRecognitionService.CalculateCosineSimilarity(unknownFaceVector, knownVector);
                         
+                        if (similarity > maxSimForThisEmployee)
+                        {
+                            maxSimForThisEmployee = similarity;
+                        }
+
                         if (similarity > highestSimilarity)
                         {
                             highestSimilarity = similarity;
@@ -72,7 +78,7 @@ namespace PPE_Detection_App.Api.Services
                         }
                     }
                     
-                    _logger.LogInformation($"[FaceMatch] So sanh voi{emp.Full_Name}: Do giong cao nhat {highestSimilarity:P2}");
+                    _logger.LogInformation($"[FaceMatch] So sanh voi {emp.Full_Name}: Do giong {maxSimForThisEmployee:P2}");
                 }
                 catch
                 {

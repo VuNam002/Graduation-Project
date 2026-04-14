@@ -1,6 +1,6 @@
 ﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Hosting;
-﻿﻿﻿using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc;
 using Models.DTO;
 using PPE_Detection_App.Api.Models;
 using PPE_Detection_App.Api.Models.DTO;

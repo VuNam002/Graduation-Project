@@ -342,10 +342,11 @@ namespace PPE_Detection_App.Api.Services
                             centerX >= p.Box.Left && centerX <= p.Box.Right &&
                             centerY >= p.Box.Top && centerY <= p.Box.Bottom)
                         {
-                            float headWidth = p.Box.Width * 0.4f;
-                            float headHeight = p.Box.Height * 0.25f;
+                            // Mở rộng cực đại phần đầu (chiều ngang 60%, chiều cao 45%, nhích lên 5%)
+                            float headWidth = p.Box.Width * 0.6f;
+                            float headHeight = p.Box.Height * 0.45f;
                             float headX = p.Box.Left + (p.Box.Width - headWidth) / 2;
-                            float headY = p.Box.Top;
+                            float headY = (float)Math.Max(0, p.Box.Top - p.Box.Height * 0.05f);
 
                             targetFaceBox = new BoundingBox(headX, headY, headWidth, headHeight);
                             hasFaceBox = true;
@@ -356,15 +357,17 @@ namespace PPE_Detection_App.Api.Services
 
                     if (!hasFaceBox && (primaryDetection.Label == "NO-Hardhat" || primaryDetection.Label == "NO-Mask" || primaryDetection.Label == "NO-Goggles"))
                     {
-                        float estHeadWidth = primaryDetection.Box.Width * 2.8f;
-                        float estHeadHeight = primaryDetection.Box.Height * 2.8f;
+                        // Tăng hệ số mở rộng lên 5.0 để bao trọn toàn bộ khuôn mặt
+                        float estHeadWidth = primaryDetection.Box.Width * 5.0f;
+                        float estHeadHeight = primaryDetection.Box.Height * 5.0f;
                         float estCx = primaryDetection.Box.Left + primaryDetection.Box.Width / 2f;
                         float estCy = primaryDetection.Box.Top + primaryDetection.Box.Height / 2f;
 
+                        // Điều chỉnh tọa độ Y chuẩn xác hơn để không bị mất cằm
                         if (primaryDetection.Label == "NO-Mask")
-                            estCy -= primaryDetection.Box.Height * 0.8f;
+                            estCy -= primaryDetection.Box.Height * 0.8f; // Khẩu trang ở cằm, đẩy trọng tâm lên trên mặt một chút
                         else if (primaryDetection.Label == "NO-Hardhat")
-                            estCy += primaryDetection.Box.Height * 0.8f;
+                            estCy += primaryDetection.Box.Height * 1.5f; // Mũ ở tít trên đỉnh đầu, kéo trọng tâm mạnh xuống dưới để lấy cằm
 
                         targetFaceBox = new BoundingBox(estCx - estHeadWidth / 2f, estCy - estHeadHeight / 2f, estHeadWidth, estHeadHeight);
                         hasFaceBox = true;
@@ -376,7 +379,11 @@ namespace PPE_Detection_App.Api.Services
                         float cx = targetFaceBox.Left + targetFaceBox.Width / 2f;
                         float cy = targetFaceBox.Top + targetFaceBox.Height / 2f;
 
-                        float squareSize = Math.Max(targetFaceBox.Width, targetFaceBox.Height) * 1.2f;
+                        // Tăng mạnh squareSize lên 2.0f (200%) để đảm bảo không thể trượt ra ngoài
+                        float squareSize = Math.Max(targetFaceBox.Width, targetFaceBox.Height) * 2.0f;
+
+                        // Dịch tâm xuống 10% (trước đó đẩy 20% có thể bị tụt sâu quá làm mất phần trán)
+                        cy += squareSize * 0.10f;
 
                         int x = (int)Math.Max(0, cx - squareSize / 2f);
                         int y = (int)Math.Max(0, cy - squareSize / 2f);
@@ -387,6 +394,13 @@ namespace PPE_Detection_App.Api.Services
                         {
                             var cropRect = new Rectangle(x, y, width, height);
                             using var cropImage = image.Clone(ctx => ctx.Crop(cropRect));
+
+                            // VẼ KHUNG CẮT MẶT LÊN CAMERA (MÀU XANH LƠ) ĐỂ BẠN DỄ DÀNG QUAN SÁT
+                            image.Mutate(ctx =>
+                            {
+                                ctx.Draw(Color.Cyan, 3f, cropRect);
+                                ctx.DrawText("Face-Crop AI", _font, Color.Cyan, new PointF(x, Math.Max(0, y - 20)));
+                            });
 
                             var debugCropPath = Path.Combine(_outputDirectory, $"debug_face_{timestamp}_{randomSuffix}.jpg");
                             await cropImage.SaveAsJpegAsync(debugCropPath);
