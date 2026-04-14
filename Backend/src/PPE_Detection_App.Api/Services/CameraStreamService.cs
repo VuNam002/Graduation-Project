@@ -18,7 +18,7 @@ namespace PPE_Detection_App.Api.Services
         private readonly ILogger<CameraStreamService> _logger;
         private readonly WebSocketManagerService _webSocketManager;
         private readonly ConcurrentDictionary<int, CancellationTokenSource> _activeCameras = new();
-        private readonly List<string> _violationLabels = new List<string> { "NO-Gloves", "NO-Goggles", "NO-Hardhat", "NO-Mask", "NO-Safety Vest" };
+        private readonly List<string> _violationLabels = new List<string> { "NO-Gloves", "NO-Goggles", "NO-Hardhat", "NO-Mask", "NO-Safety Vest", "Fall-Detected" };
         private readonly string _outputDirectory;
         private readonly Font _font;
 
@@ -96,6 +96,7 @@ namespace PPE_Detection_App.Api.Services
             DateTime lastConfigCheck = DateTime.MinValue;
             float currentConf = YoloV8Processor.DefaultConfidenceThreshold;
             float currentNms = YoloV8Processor.DefaultNmsThreshold;
+            string currentModel = "YOLOv8";
 
             while (!cancellationToken.IsCancellationRequested)
             {
@@ -135,10 +136,15 @@ namespace PPE_Detection_App.Api.Services
                             currentNms = parsedNms;
                         }
                         
+                        var modelStr = await dbService.GetSystemConfigAsync("ActiveModel");
+                        if (!string.IsNullOrEmpty(modelStr)) { currentModel = modelStr; }
+
+                        _logger.LogInformation($"[AI Config] Đang dùng Model: {currentModel} | Conf: {currentConf} | NMS: {currentNms}");
+                        
                         lastConfigCheck = DateTime.UtcNow;
                     }
 
-                    var detections = yoloProcessor.ProcessImageWithThresholds(imageForProcessing, currentConf, currentNms);
+                    var detections = yoloProcessor.ProcessImageWithThresholds(imageForProcessing, currentConf, currentNms, currentModel);
                     var allViolationDetections = detections.Where(d => _violationLabels.Contains(d.Label)).ToList();
 
                     var eligibleDetections = new List<DetectionResult>();

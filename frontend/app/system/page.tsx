@@ -19,10 +19,17 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Settings2, Save, RotateCcw, BrainCircuit, ShieldAlert } from "lucide-react";
 
 export default function SystemSettingsPage() {
-  const [config, setConfig] = React.useState<System>({ confidenceThreshold: 0.3, nmsThreshold: 0.5 });
+  const [config, setConfig] = React.useState<System>({ confidenceThreshold: 0.3, nmsThreshold: 0.5, activeModel: "YOLOv8" });
   const [loading, setLoading] = React.useState(true);
   const [saving, setSaving] = React.useState(false);
 
@@ -80,7 +87,7 @@ export default function SystemSettingsPage() {
   };
 
   const handleReset = () => {
-    setConfig({ confidenceThreshold: 0.3, nmsThreshold: 0.5 });
+    setConfig({ confidenceThreshold: 0.3, nmsThreshold: 0.5, activeModel: "YOLOv8" });
     toast.info("Đã đặt lại thông số về mặc định (Nhấn Lưu để áp dụng)");
   };
 
@@ -115,13 +122,37 @@ export default function SystemSettingsPage() {
           ) : (
             <Card className="border-muted shadow-sm">
               <CardHeader className="bg-muted/20 border-b pb-6 mb-6">
-                <CardTitle className="text-xl">Cấu hình mô hình AI YOLOv8</CardTitle>
+                <CardTitle className="text-xl">Cấu hình mô hình AI YOLO</CardTitle>
                 <CardDescription className="text-sm">
                   Điều chỉnh các thông số này sẽ ảnh hưởng trực tiếp đến độ nhạy và cách AI nhận diện vi phạm trên luồng Camera. Camera sẽ tự động áp dụng cấu hình mới sau mỗi 10 giây.
                 </CardDescription>
               </CardHeader>
               
               <CardContent className="space-y-10">
+                {/* Active Model */}
+                <div className="space-y-4">
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="space-y-1">
+                      <Label className="text-base flex items-center gap-2 font-semibold">
+                        <BrainCircuit className="h-4 w-4 text-purple-500" /> Mô hình AI (Active Model)
+                      </Label>
+                      <p className="text-sm text-muted-foreground">Chọn phiên bản mô hình YOLO (YOLOv8 hoặc YOLOv11) để sử dụng cho việc nhận diện trên luồng camera.</p>
+                    </div>
+                    <Select
+                      value={config.activeModel || "YOLOv8"}
+                      onValueChange={(value) => setConfig((prev) => ({ ...prev, activeModel: value }))}
+                    >
+                      <SelectTrigger className="w-32 font-semibold">
+                        <SelectValue placeholder="Chọn model" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="YOLOv8">YOLOv8</SelectItem>
+                        <SelectItem value="YOLOv11">YOLOv11</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+
                 {/* Confidence Threshold */}
                 <div className="space-y-4">
                   <div className="flex items-start justify-between gap-4">

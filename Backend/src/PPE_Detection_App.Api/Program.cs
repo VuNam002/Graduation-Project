@@ -1,4 +1,4 @@
-﻿﻿﻿﻿using Microsoft.AspNetCore.Authentication.JwtBearer;
+﻿﻿﻿﻿﻿﻿using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.ML.OnnxRuntime;
 using Microsoft.OpenApi.Models;
@@ -91,17 +91,7 @@ builder.Services.AddScoped<EmailService>();
 builder.Services.AddSingleton<FaceRecognitionService>(); 
 builder.Services.AddSingleton<FaceMatcherService>();
 
-var modelPath = Path.GetFullPath(Path.Combine(builder.Environment.ContentRootPath, "..", "..", "..", "AITooling", "yolo_model", "best.onnx"));
-if (!File.Exists(modelPath)) throw new FileNotFoundException($"Model file not found at: {modelPath}");
-
-builder.Services.AddSingleton(sp =>
-{
-    var logger = sp.GetRequiredService<ILogger<Program>>();
-
-    // Mặc định: CPU
-    logger.LogInformation("ONNX Runtime: Using CPU Execution Provider.");
-    return new InferenceSession(modelPath);
-});
+builder.Services.AddSingleton<YoloModelProvider>();
 builder.Services.AddScoped<YoloV8Processor>();
 
 var app = builder.Build();

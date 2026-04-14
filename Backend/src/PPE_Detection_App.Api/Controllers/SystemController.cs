@@ -33,7 +33,7 @@ namespace PPE_Detection_App.Api.Controllers
             if (request.NmsThreshold <= 0 || request.NmsThreshold > 1)
                 return BadRequest(new { success = false, message = "NmsThreshold phai nam trong khoang (0, 1]." });
 
-            await _systemService.UpdateConfigsAsync(request.ConfidenceThreshold, request.NmsThreshold);
+            await _systemService.UpdateConfigsAsync(request);
             
             return Ok(new { success = true, message = "Cap nhat cau hinh AI thanh cong." });
         }

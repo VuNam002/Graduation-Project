@@ -6,9 +6,42 @@ using PPE_Detection_App.Api.Models;
 
 namespace PPE_Detection_App.Api.Services
 {
+    public class YoloModelProvider : IDisposable
+    {
+        public InferenceSession SessionV8 { get; }
+        public InferenceSession SessionV11 { get; }
+
+        public YoloModelProvider(IWebHostEnvironment env, ILogger<YoloModelProvider> logger)
+        {
+            var v8Path = Path.GetFullPath(Path.Combine(env.ContentRootPath, "..", "..", "..", "AITooling", "yolo_model", "best.onnx"));
+            var v11Path = Path.GetFullPath(Path.Combine(env.ContentRootPath, "..", "..", "..", "AITooling", "Yolo11_Training", "weights", "best.onnx"));
+
+            // Fallback khi chạy production (nếu các đường dẫn thư mục có thay đổi)
+            if (!File.Exists(v8Path)) v8Path = Path.GetFullPath(Path.Combine(env.ContentRootPath, "AITooling", "yolo_model", "best.onnx"));
+            if (!File.Exists(v11Path)) v11Path = Path.GetFullPath(Path.Combine(env.ContentRootPath, "AITooling", "Yolo11_Training", "weights", "best.onnx"));
+
+            logger.LogInformation($"Loading YOLOv8 from: {v8Path}");
+            SessionV8 = new InferenceSession(v8Path);
+
+            if (File.Exists(v11Path)) {
+                logger.LogInformation($"Loading YOLOv11 from: {v11Path}");
+                SessionV11 = new InferenceSession(v11Path);
+            } else {
+                logger.LogWarning($"YOLOv11 model not found at {v11Path}. Fallback to YOLOv8.");
+                SessionV11 = SessionV8;
+            }
+        }
+
+        public void Dispose()
+        {
+            SessionV8?.Dispose();
+            if (SessionV11 != null && SessionV11 != SessionV8) SessionV11.Dispose();
+        }
+    }
+
     public class YoloV8Processor
     {
-        private readonly InferenceSession _session;
+        private readonly YoloModelProvider _modelProvider;
 
         private readonly string[] _classLabels = new[]
         {
@@ -22,30 +55,30 @@ namespace PPE_Detection_App.Api.Services
         private const int ModelWidth = 640;
         private const int ModelHeight = 640;
 
-        public YoloV8Processor(InferenceSession session)
+        public YoloV8Processor(YoloModelProvider modelProvider)
         {
-            _session = session ?? throw new ArgumentNullException(nameof(session));
-            Console.WriteLine($"YOLOv8 Processor initialized with {_classLabels.Length} classes");
+            _modelProvider = modelProvider ?? throw new ArgumentNullException(nameof(modelProvider));
         }
 
         public string[] GetClassLabels() => _classLabels;
 
-        public IEnumerable<DetectionResult> ProcessImage(Image image)
+        public IEnumerable<DetectionResult> ProcessImage(Image image, string activeModel = "YOLOv8")
         {
-            return ProcessImageWithThresholds(image, DefaultConfidenceThreshold, DefaultNmsThreshold);
+            return ProcessImageWithThresholds(image, DefaultConfidenceThreshold, DefaultNmsThreshold, activeModel);
         }
 
-        public IEnumerable<DetectionResult> ProcessImageWithThresholds(Image image, float confidenceThreshold, float nmsThreshold)
+        public IEnumerable<DetectionResult> ProcessImageWithThresholds(Image image, float confidenceThreshold, float nmsThreshold, string activeModel = "YOLOv8")
         {
             if (image == null) throw new ArgumentNullException(nameof(image));
 
+            var session = activeModel == "YOLOv11" ? _modelProvider.SessionV11 : _modelProvider.SessionV8;
             var originalWidth = image.Width;
             var originalHeight = image.Height;
 
             var inputTensor = PreprocessImage(image);
             var inputs = new List<NamedOnnxValue> { NamedOnnxValue.CreateFromTensor("images", inputTensor) };
 
-            using var results = _session.Run(inputs);
+            using var results = session.Run(inputs);
             var outputTensor = results.FirstOrDefault()?.AsTensor<float>();
 
             if (outputTensor == null) return Enumerable.Empty<DetectionResult>();
@@ -99,8 +132,11 @@ namespace PPE_Detection_App.Api.Services
             }
 
             var results = new List<DetectionResult>();
-            var scaleX = (float)originalWidth / ModelWidth;
-            var scaleY = (float)originalHeight / ModelHeight;
+
+            // Tính toán tỷ lệ và bù trừ viền (padding) do ảnh đầu vào dùng ResizeMode.Pad
+            float gain = Math.Min((float)ModelWidth / originalWidth, (float)ModelHeight / originalHeight);
+            float padX = (ModelWidth - originalWidth * gain) / 2.0f;
+            float padY = (ModelHeight - originalHeight * gain) / 2.0f;
 
             foreach (var prediction in predictions)
             {
@@ -109,16 +145,18 @@ namespace PPE_Detection_App.Api.Services
                 var width = prediction[2];
                 var height = prediction[3];
 
-                var x = (centerX - width / 2) * scaleX;
-                var y = (centerY - height / 2) * scaleY;
-                var boxWidth = width * scaleX;
-                var boxHeight = height * scaleY;
+                // Giải mã tọa độ 1 lần cho mỗi prediction row
+                var boxWidth = width / gain;
+                var boxHeight = height / gain;
+                var x = (centerX - padX) / gain - boxWidth / 2;
+                var y = (centerY - padY) / gain - boxHeight / 2;
 
                 x = Math.Max(0, Math.Min(x, originalWidth));
                 y = Math.Max(0, Math.Min(y, originalHeight));
                 boxWidth = Math.Min(boxWidth, originalWidth - x);
                 boxHeight = Math.Min(boxHeight, originalHeight - y);
 
+                // Duyệt qua tất cả các class, cho phép đa nhãn (Multi-label) trên cùng 1 box
                 for (int i = 4; i < prediction.Length; i++)
                 {
                     var score = prediction[i];
