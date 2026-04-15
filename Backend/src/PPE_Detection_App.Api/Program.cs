@@ -101,7 +101,6 @@ builder.Services.AddSingleton<CameraStreamService>();
 builder.Services.AddScoped<EmailService>();
 builder.Services.AddSingleton<FaceRecognitionService>(); 
 builder.Services.AddSingleton<FaceMatcherService>();
-builder.Services.AddScoped<VideoProcessingService>();
 
 builder.Services.AddSingleton<YoloModelProvider>();
 builder.Services.AddScoped<YoloV8Processor>();

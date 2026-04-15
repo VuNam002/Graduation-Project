@@ -78,11 +78,6 @@ const data = {
       ]
     },
     {
-      title: "Video camera",
-      url: "/video",
-      icon: GiCctvCamera,
-    },
-    {
       title: "Cài đặt",
       url: "/system",
       icon: IconAutomation,
