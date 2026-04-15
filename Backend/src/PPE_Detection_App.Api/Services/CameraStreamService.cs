@@ -87,111 +87,143 @@ namespace PPE_Detection_App.Api.Services
                 return;
             }
 
-            capture.FrameWidth = 1280;
-            capture.FrameHeight = 720;
+            capture.FrameWidth = 1280; capture.FrameHeight = 720;
 
-            using var frame = new Mat();
-            using var rgbaFrame = new Mat();
-            
+            Mat latestFrame = new Mat();
+            object frameLock = new object();
+            bool isNewFrameAvailable = false;
+            bool isProcessing = false; 
+
             DateTime lastConfigCheck = DateTime.MinValue;
             float currentConf = YoloV8Processor.DefaultConfidenceThreshold;
             float currentNms = YoloV8Processor.DefaultNmsThreshold;
             string currentModel = "YOLOv8";
 
+            var captureTask = Task.Run(() =>
+            {
+                using var tempFrame = new Mat();
+                while (!cancellationToken.IsCancellationRequested)
+                {
+                    if (capture.Read(tempFrame) && !tempFrame.Empty())
+                    {
+                        lock (frameLock)
+                        {
+                            tempFrame.CopyTo(latestFrame);
+                            isNewFrameAvailable = true;
+                        }
+                    }
+                    else
+                    {
+                        // Nếu camera bị ngắt, đợi một chút để tránh CPU 100%
+                        Task.Delay(100, cancellationToken).Wait(cancellationToken);
+                    }
+                }
+                _logger.LogInformation($"Luồng đọc camera {cameraId} đã dừng.");
+            }, cancellationToken);
+
             while (!cancellationToken.IsCancellationRequested)
             {
-                if (!capture.Read(frame) || frame.Empty())
+                Mat? frameToProcess = null;
+                lock (frameLock)
                 {
-                    await Task.Delay(10, cancellationToken); 
-                    continue;
+                    if (isNewFrameAvailable && !isProcessing)
+                    {
+                        frameToProcess = latestFrame.Clone();
+                        isNewFrameAvailable = false;
+                        isProcessing = true;
+                    }
                 }
 
-                Image<Rgba32>? imageForProcessing = null;
-                try
+                if (frameToProcess != null)
                 {
-                    Cv2.CvtColor(frame, rgbaFrame, ColorConversionCodes.BGR2RGBA);
-                    imageForProcessing = ConvertMatToImageSharp(rgbaFrame);
-
-                    using var scope = _serviceProvider.CreateScope();
-                    var yoloProcessor = scope.ServiceProvider.GetRequiredService<YoloV8Processor>();
-                    var violationRepo = scope.ServiceProvider.GetRequiredService<ViolationRepository>();
-                    var emailService = scope.ServiceProvider.GetRequiredService<EmailService>();
-                    var configuration = scope.ServiceProvider.GetRequiredService<IConfiguration>();
-                    var faceService = scope.ServiceProvider.GetRequiredService<FaceRecognitionService>();
-                    var dbService = scope.ServiceProvider.GetRequiredService<DatabaseService>();
-                    var faceMatcherService = scope.ServiceProvider.GetRequiredService<FaceMatcherService>();
-
-                    // Cập nhật cấu hình từ DB mỗi 10 giây thay vì truy vấn liên tục mỗi khung hình
-                    if ((DateTime.UtcNow - lastConfigCheck).TotalSeconds > 10)
+                    Image<Rgba32>? imageForProcessing = null;
+                    try
                     {
-                        var confStr = await dbService.GetSystemConfigAsync("ConfidenceThreshold");
-                        if (float.TryParse(confStr, out float parsedConf))
+                        using var rgbaFrame = new Mat();
+                        Cv2.CvtColor(frameToProcess, rgbaFrame, ColorConversionCodes.BGR2RGBA);
+                        imageForProcessing = ConvertMatToImageSharp(rgbaFrame);
+
+                        using var scope = _serviceProvider.CreateScope();
+                        var yoloProcessor = scope.ServiceProvider.GetRequiredService<YoloV8Processor>();
+                        var violationRepo = scope.ServiceProvider.GetRequiredService<ViolationRepository>();
+                        var emailService = scope.ServiceProvider.GetRequiredService<EmailService>();
+                        var configuration = scope.ServiceProvider.GetRequiredService<IConfiguration>();
+                        var faceService = scope.ServiceProvider.GetRequiredService<FaceRecognitionService>();
+                        var dbService = scope.ServiceProvider.GetRequiredService<DatabaseService>();
+                        var faceMatcherService = scope.ServiceProvider.GetRequiredService<FaceMatcherService>();
+
+                        if ((DateTime.UtcNow - lastConfigCheck).TotalSeconds > 10)
                         {
-                            currentConf = parsedConf;
+                            var confStr = await dbService.GetSystemConfigAsync("ConfidenceThreshold");
+                            if (float.TryParse(confStr, out float parsedConf)) currentConf = parsedConf;
+
+                            var nmsStr = await dbService.GetSystemConfigAsync("NmsThreshold");
+                            if (float.TryParse(nmsStr, out float parsedNms)) currentNms = parsedNms;
+                            
+                            var modelStr = await dbService.GetSystemConfigAsync("ActiveModel");
+                            if (!string.IsNullOrEmpty(modelStr)) currentModel = modelStr;
+
+                            _logger.LogInformation($"[AI Config] Đang dùng Model: {currentModel} | Conf: {currentConf} | NMS: {currentNms}");
+                            lastConfigCheck = DateTime.UtcNow;
                         }
 
-                        var nmsStr = await dbService.GetSystemConfigAsync("NmsThreshold");
-                        if (float.TryParse(nmsStr, out float parsedNms))
+                        var detections = yoloProcessor.ProcessImageWithThresholds(imageForProcessing, currentConf, currentNms, currentModel);
+                        var allViolationDetections = detections.Where(d => _violationLabels.Contains(d.Label)).ToList();
+
+                        var eligibleDetections = new List<DetectionResult>();
+                        if (allViolationDetections.Any())
                         {
-                            currentNms = parsedNms;
-                        }
-                        
-                        var modelStr = await dbService.GetSystemConfigAsync("ActiveModel");
-                        if (!string.IsNullOrEmpty(modelStr)) { currentModel = modelStr; }
-
-                        _logger.LogInformation($"[AI Config] Đang dùng Model: {currentModel} | Conf: {currentConf} | NMS: {currentNms}");
-                        
-                        lastConfigCheck = DateTime.UtcNow;
-                    }
-
-                    var detections = yoloProcessor.ProcessImageWithThresholds(imageForProcessing, currentConf, currentNms, currentModel);
-                    var allViolationDetections = detections.Where(d => _violationLabels.Contains(d.Label)).ToList();
-
-                    var eligibleDetections = new List<DetectionResult>();
-                    if (allViolationDetections.Any())
-                    {
-                        var now = DateTime.UtcNow;
-                        foreach (var detection in allViolationDetections)
-                        {
-                            if (!_lastDetectionTimestamps.TryGetValue(detection.Label, out var lastTime) ||
-                                (now - lastTime).TotalSeconds > ViolationCooldownSeconds)
+                            var now = DateTime.UtcNow;
+                            foreach (var detection in allViolationDetections)
                             {
-                                eligibleDetections.Add(detection);
-                                _lastDetectionTimestamps[detection.Label] = now;
+                                if (!_lastDetectionTimestamps.TryGetValue(detection.Label, out var lastTime) ||
+                                    (now - lastTime).TotalSeconds > ViolationCooldownSeconds)
+                                {
+                                    eligibleDetections.Add(detection);
+                                    _lastDetectionTimestamps[detection.Label] = now;
+                                }
                             }
                         }
-                    }
 
-                    var drawnTextRects = new List<RectangleF>();
-                    foreach (var detection in detections)
-                    {
-                        bool isViolation = _violationLabels.Contains(detection.Label);
-                        bool isOnCooldown = isViolation && !eligibleDetections.Contains(detection);
-                        DrawBoundingBox(imageForProcessing, detection, isViolation, isOnCooldown, drawnTextRects);
-                    }
+                        var drawnTextRects = new List<RectangleF>();
+                        foreach (var detection in detections)
+                        {
+                            bool isViolation = _violationLabels.Contains(detection.Label);
+                            bool isOnCooldown = isViolation && !eligibleDetections.Contains(detection);
+                            DrawBoundingBox(imageForProcessing, detection, isViolation, isOnCooldown, drawnTextRects);
+                        }
 
-                    if (eligibleDetections.Any())
-                    {
-                        await HandleViolations(eligibleDetections, detections.ToList(), imageForProcessing, violationRepo, emailService, configuration, faceService, dbService, faceMatcherService);
-                    }
+                        if (eligibleDetections.Any())
+                        {
+                            await HandleViolations(eligibleDetections, detections.ToList(), imageForProcessing, violationRepo, emailService, configuration, faceService, dbService, faceMatcherService);
+                        }
 
-                    if (_webSocketManager.GetConnectionCount() > 0)
+                        if (_webSocketManager.GetConnectionCount() > 0)
+                        {
+                            var dataUri = ConvertImageToDataUri(imageForProcessing);
+                            await _webSocketManager.BroadcastMessage(dataUri);
+                        }
+                    }
+                    catch (Exception ex)
                     {
-                        var dataUri = ConvertImageToDataUri(imageForProcessing);
-                        await _webSocketManager.BroadcastMessage(dataUri);
+                        _logger.LogError(ex, $"Lỗi khi xử lý frame từ camera {cameraId}.");
+                    }
+                    finally
+                    {
+                        imageForProcessing?.Dispose();
+                        frameToProcess.Dispose();
+                        isProcessing = false; // Mở khóa để frame tiếp theo được xử lý
                     }
                 }
-                catch (Exception ex)
+                else
                 {
-                    _logger.LogError(ex, $"Error processing frame from camera {cameraId}.");
+                    // Nếu không có frame mới, đợi một chút để tránh vòng lặp nóng (hot loop)
+                    await Task.Delay(10, cancellationToken);
                 }
-                finally
-                {
-                    imageForProcessing?.Dispose();
-                }
-
-                await Task.Yield(); 
             }
+
+            _logger.LogInformation($"Luồng xử lý AI cho camera {cameraId} đã dừng.");
+            await captureTask; // Đợi luồng đọc camera kết thúc hoàn toàn
         }
 
         private static Image<Rgba32> ConvertMatToImageSharp(Mat rgbaMat)

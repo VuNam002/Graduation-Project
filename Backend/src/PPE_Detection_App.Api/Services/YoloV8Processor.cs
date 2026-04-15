@@ -1,4 +1,4 @@
-﻿using Microsoft.ML.OnnxRuntime;
+﻿﻿using Microsoft.ML.OnnxRuntime;
 using Microsoft.ML.OnnxRuntime.Tensors;
 using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.Processing;
@@ -13,20 +13,41 @@ namespace PPE_Detection_App.Api.Services
 
         public YoloModelProvider(IWebHostEnvironment env, ILogger<YoloModelProvider> logger)
         {
-            var v8Path = Path.GetFullPath(Path.Combine(env.ContentRootPath, "..", "..", "..", "AITooling", "yolo_model", "best.onnx"));
-            var v11Path = Path.GetFullPath(Path.Combine(env.ContentRootPath, "..", "..", "..", "AITooling", "Yolo11_Training", "weights", "best.onnx"));
+            var possibleV8Paths = new[]
+            {
+                Path.GetFullPath(Path.Combine(env.ContentRootPath, "..", "..", "..", "AITooling", "yolo_model", "best.onnx")),
+                Path.GetFullPath(Path.Combine(env.ContentRootPath, "AITooling", "yolo_model", "best.onnx")),
+                Path.GetFullPath(Path.Combine(Directory.GetCurrentDirectory(), "AITooling", "yolo_model", "best.onnx"))
+            };
 
-            if (!File.Exists(v8Path)) v8Path = Path.GetFullPath(Path.Combine(env.ContentRootPath, "AITooling", "yolo_model", "best.onnx"));
-            if (!File.Exists(v11Path)) v11Path = Path.GetFullPath(Path.Combine(env.ContentRootPath, "AITooling", "Yolo11_Training", "weights", "best.onnx"));
+            var possibleV11Paths = new[]
+            {
+                Path.GetFullPath(Path.Combine(env.ContentRootPath, "..", "..", "..", "AITooling", "Yolo11_Training", "weights", "best.onnx")),
+                Path.GetFullPath(Path.Combine(env.ContentRootPath, "AITooling", "Yolo11_Training", "weights", "best.onnx")),
+                Path.GetFullPath(Path.Combine(Directory.GetCurrentDirectory(), "AITooling", "Yolo11_Training", "weights", "best.onnx"))
+            };
+
+            var v8Path = possibleV8Paths.FirstOrDefault(File.Exists) ?? possibleV8Paths[0];
+            var v11Path = possibleV11Paths.FirstOrDefault(File.Exists) ?? possibleV11Paths[0];
 
             logger.LogInformation($"Loading YOLOv8 from: {v8Path}");
             SessionV8 = new InferenceSession(v8Path);
 
             if (File.Exists(v11Path)) {
-                logger.LogInformation($"Loading YOLOv11 from: {v11Path}");
-                SessionV11 = new InferenceSession(v11Path);
+                try
+                {
+                    logger.LogInformation($"Loading YOLOv11 from: {v11Path}");
+                    SessionV11 = new InferenceSession(v11Path);
+                }
+                catch (Exception ex)
+                {
+                    logger.LogError(ex, "Lỗi khi tải mô hình YOLOv11 (File có thể bị hỏng, lỗi Git LFS, hoặc sai định dạng). Hệ thống sẽ tự động dùng YOLOv8 dự phòng.");
+                    SessionV11 = SessionV8;
+                }
             } else {
-                logger.LogWarning($"YOLOv11 model not found at {v11Path}. Fallback to YOLOv8.");
+                logger.LogWarning($"YOLOv11 model not found. Fallback to YOLOv8.");
+                logger.LogWarning("Hệ thống đã tìm YOLOv11 tại các đường dẫn sau nhưng không thấy:");
+                foreach (var p in possibleV11Paths) logger.LogWarning($"- {p}");
                 SessionV11 = SessionV8;
             }
         }
@@ -117,15 +138,22 @@ namespace PPE_Detection_App.Api.Services
         private IEnumerable<DetectionResult> Postprocess(Tensor<float> output, int originalWidth, int originalHeight, float confidenceThreshold, float nmsThreshold)
         {
             var predictions = new List<float[]>();
-            var numPredictions = output.Dimensions[2];
-            var numClassesPlusBox = output.Dimensions[1];
+
+
+            if (output.Dimensions.Length < 3) return Enumerable.Empty<DetectionResult>();
+            int dim1 = output.Dimensions[1];
+            int dim2 = output.Dimensions[2];
+            
+            int numPredictions = dim1 > dim2 ? dim1 : dim2;
+            int numClassesPlusBox = dim1 > dim2 ? dim2 : dim1;
+            bool isTransposed = dim1 > dim2;
 
             for (int i = 0; i < numPredictions; i++)
             {
                 var prediction = new float[numClassesPlusBox];
                 for (int j = 0; j < numClassesPlusBox; j++)
                 {
-                    prediction[j] = output[0, j, i];
+                    prediction[j] = isTransposed ? output[0, i, j] : output[0, j, i];
                 }
                 predictions.Add(prediction);
             }
@@ -153,7 +181,10 @@ namespace PPE_Detection_App.Api.Services
                 boxWidth = Math.Min(boxWidth, originalWidth - x);
                 boxHeight = Math.Min(boxHeight, originalHeight - y);
 
-                for (int i = 4; i < prediction.Length; i++)
+                // FIX LỖI CRASH: Lấy giá trị nhỏ nhất giữa số lượng class model trả về và số lượng class mình định nghĩa
+                int maxClasses = Math.Min(prediction.Length, _classLabels.Length + 4);
+                
+                for (int i = 4; i < maxClasses; i++)
                 {
                     var score = prediction[i];
                     if (score >= confidenceThreshold)

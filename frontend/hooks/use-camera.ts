@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { fetchStartCamera, fetchStopCamera } from '@/lib/api';
+import { fetchStartCamera, fetchStopCamera, getBackendUrl } from '@/lib/api';
 import { toast } from 'sonner';
 
 export function useCamera(cameraId: number = 0) {
@@ -17,8 +17,9 @@ export function useCamera(cameraId: number = 0) {
     if (wsRef.current?.readyState === WebSocket.OPEN) return;
 
     setWsStatus('connecting');
-    // URL WebSocket mặc định (có thể cấu hình lại nếu cần)
-    const wsUrl = 'wss://localhost:7215/ws'; 
+    
+    const backendUrl = getBackendUrl(); 
+    const wsUrl = backendUrl.replace(/^http/, 'ws') + '/ws'; 
     
     const ws = new WebSocket(wsUrl);
 

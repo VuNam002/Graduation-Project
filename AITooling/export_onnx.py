@@ -1,13 +1,15 @@
 from ultralytics import YOLO
-import os
 
-# Get the directory of the current script
-script_dir = os.path.dirname(os.path.abspath(__file__))
-# Build the path to the model
-model_path = os.path.join(script_dir, 'yolo_model', 'best.pt')
-model = YOLO(model_path)
+model = YOLO(r"D:\Graduation-Project\PPE_Detection_App\AITooling\Yolo11_Training\weights\best.pt")
 
-
-model.export(format='onnx', imgsz=640, simplify=True, opset=12)
-
-
+model.export(
+    format='onnx',
+    imgsz=640,
+    simplify=True,
+    opset=12,
+    half=False,
+    dynamic=False,
+    batch=1,
+    device='cpu',
+    name='bestYolov11',
+)

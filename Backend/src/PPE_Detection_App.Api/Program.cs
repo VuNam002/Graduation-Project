@@ -1,4 +1,4 @@
-﻿﻿﻿﻿﻿﻿using Microsoft.AspNetCore.Authentication.JwtBearer;
+﻿﻿﻿﻿﻿﻿﻿﻿using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.ML.OnnxRuntime;
 using Microsoft.OpenApi.Models;
@@ -7,6 +7,17 @@ using PPE_Detection_App.Api.Services;
 using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
+
+// Tăng giới hạn dung lượng tải file lên cho xử lý Video (100MB)
+builder.WebHost.ConfigureKestrel(options =>
+{
+    options.Limits.MaxRequestBodySize = 104857600; 
+});
+
+builder.Services.Configure<Microsoft.AspNetCore.Http.Features.FormOptions>(options =>
+{
+    options.MultipartBodyLengthLimit = 104857600;
+});
 
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
@@ -90,6 +101,7 @@ builder.Services.AddSingleton<CameraStreamService>();
 builder.Services.AddScoped<EmailService>();
 builder.Services.AddSingleton<FaceRecognitionService>(); 
 builder.Services.AddSingleton<FaceMatcherService>();
+builder.Services.AddScoped<VideoProcessingService>();
 
 builder.Services.AddSingleton<YoloModelProvider>();
 builder.Services.AddScoped<YoloV8Processor>();
@@ -140,7 +152,7 @@ app.Map("/ws", async context =>
     else
     {
         context.Response.StatusCode = 400;
-        await context.Response.WriteAsync("WebSocket connection required");
+        await context.Response.WriteAsync("WebSocket connection required.");
     }
 });
 

@@ -460,6 +460,14 @@ export async function fetchExcleExportEmployee(): Promise<{ success: boolean; me
   });
 }
 
+export async function fetchVideoUrl(formData: FormData): Promise<{ success: boolean; message?: string; videoUrl?: string }> {
+  return api<{ success: boolean; message?: string; videoUrl?: string }>(`${API_URL}/Video/process`, {
+    method: 'POST',
+    headers: getAuthHeaders(),
+    body: formData,
+  });
+}
+
 export async function fetchCreateEmployee(formData: FormData): Promise<{ success?: boolean; message?: string; totalAnglesEnrolled?: number; employeeName?: string }> {
   return api<{ success?: boolean; message?: string; totalAnglesEnrolled?: number; employeeName?: string }>(`${API_URL}/Employee/enroll`, {
     method: 'POST',

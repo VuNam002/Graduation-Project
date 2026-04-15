@@ -10,6 +10,7 @@ import {
   IconAutomation,
   IconLayoutDashboard 
 } from "@tabler/icons-react"
+import { GiCctvCamera } from "react-icons/gi";
 import Link from "next/link"
 
 import { useAuth } from "@/lib/auth"
@@ -75,6 +76,11 @@ const data = {
         url: "/employee/created"
         }
       ]
+    },
+    {
+      title: "Video camera",
+      url: "/video",
+      icon: GiCctvCamera,
     },
     {
       title: "Cài đặt",
