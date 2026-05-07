@@ -43,7 +43,13 @@ export function WidgetsBarChart() {
     const fetchData = async () => {
       setLoading(true)
       try {
-        const params: any = startDate && endDate ? { startDate, endDate } : { daysRange: 7 }
+        const params: any = {}
+        if (startDate && endDate) {
+          params.startDate = startDate
+          params.endDate = endDate
+        } else {
+          params.daysRange = 7
+        }
         const result = await fetchDashboardOverview(params)
         
         if (result.success) {
@@ -71,7 +77,7 @@ export function WidgetsBarChart() {
       }
     }
     fetchData()
-  }, [fetchTrigger, startDate, endDate])
+  }, [fetchTrigger])
 
   if (loading) {
     return (

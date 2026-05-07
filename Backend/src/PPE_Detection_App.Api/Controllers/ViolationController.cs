@@ -1,4 +1,4 @@
-﻿﻿﻿﻿﻿﻿﻿﻿using Microsoft.AspNetCore.Mvc;
+﻿﻿using Microsoft.AspNetCore.Mvc;
 using PPE_Detection_App.Api.Services;
 using PPE_Detection_App.Api.Models;
 using ClosedXML.Excel; 
@@ -448,6 +448,28 @@ namespace PPE_Detection_App.Api.Controllers
             {
                 _logger.LogError(ex, "Error getting today summary");
                 return StatusCode(500, new { success = false, error = "Lỗi khi lấy tổng quan hôm nay" });
+            }
+        }
+        [HttpGet("categories")]
+        public async Task<IActionResult> GetAllCategories()
+        {
+            try
+            {
+                var categories = await _violationRepo.GetAllCategoriesAsync();
+                return Ok(new
+                {
+                    success = true,
+                    data = categories.Select(c => new
+                    {
+                        id = c.Id,
+                        displayName = c.Display_Name
+                    })
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting categories");
+                return StatusCode(500, new { success = false, error = "Lỗi khi lấy danh sách loại vi phạm" });
             }
         }
         [HttpGet("export-excel")]

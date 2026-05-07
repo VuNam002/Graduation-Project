@@ -128,6 +128,8 @@ export function getUserFromToken(): AccountDetail | null {
 
 export interface DashboardParams {
   daysRange?: number; 
+  startDate?: string;
+  endDate?: string;
 }
 
 export async function fetchDashboardOverview(
@@ -138,6 +140,13 @@ export async function fetchDashboardOverview(
   if (params?.daysRange !== undefined) {
     query.append('daysRange', String(params.daysRange));
   }
+  if (params?.startDate) {
+    query.append('startDate', params.startDate);
+  }
+  if (params?.endDate) {
+    query.append('endDate', params.endDate);
+  }
+  
 
   const queryString = query.toString();
   const url = `${API_URL}/Dashboard/overview${queryString ? `?${queryString}` : ''}`;
@@ -359,7 +368,7 @@ export async function fetchExportViolationExcel(startDate: string, endDate: stri
 }
 
 export async function fetchCategories(): Promise<ViolationCategory[]> {
-  return api<ViolationCategory[]>(`${API_URL}/Category`, {
+  return api<ViolationCategory[]>(`${API_URL}/Violation/categories`, {
     method: 'GET',
     headers: getAuthHeaders(),
   });

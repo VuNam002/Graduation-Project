@@ -1,4 +1,4 @@
-﻿﻿﻿﻿using ClosedXML.Excel;
+﻿﻿﻿﻿﻿﻿using ClosedXML.Excel;
 using Dapper;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.Data.SqlClient;
@@ -439,7 +439,7 @@ namespace PPE_Detection_App.Api.Services
             using var wb = new XLWorkbook();
             var ws = wb.Worksheets.Add("Báo Cáo Vi Phạm");
 
-            int totalCols = 7;
+            int totalCols = 4;
 
             ws.Cell(1, 1).Value = $"BÁO CÁO VI PHẠM  |  {startDate:dd/MM/yyyy} – {endDate:dd/MM/yyyy}";
             ws.Range(1, 1, 1, totalCols).Merge()
@@ -449,10 +449,8 @@ namespace PPE_Detection_App.Api.Services
               .Font.SetFontColor(XLColor.White);
 
             string[] headers = {
-        "Mã NV", "Họ và Tên", "Phòng Ban",
-        "Loại Vi Phạm", "Mức Độ", 
-        "Thời Gian Phát Hiện", "Trạng Thái"
-    };
+                "Loại Vi Phạm", "Mức Độ", "Thời Gian Phát Hiện", "Trạng Thái"
+            };
 
             for (int i = 0; i < headers.Length; i++)
             {
@@ -471,14 +469,19 @@ namespace PPE_Detection_App.Api.Services
 
             foreach (var item in data)
             {
-                ws.Cell(row, 1).Value = item.Employee_Code;
-                ws.Cell(row, 2).Value = item.Full_Name;
-                ws.Cell(row, 3).Value = item.Department;
-                ws.Cell(row, 4).Value = item.Display_Name;
-                ws.Cell(row, 5).Value = item.Severity_Level;
-                ws.Cell(row, 6).Value = item.Detected_Time;
-                ws.Cell(row, 6).Style.NumberFormat.Format = "dd/MM/yyyy HH:mm:ss";
-                ws.Cell(row, 7).Value = item.Status;
+                ws.Cell(row, 1).Value = item.Display_Name;
+                ws.Cell(row, 2).Value = item.Severity_Level;
+                ws.Cell(row, 3).Value = item.Detected_Time;
+                ws.Cell(row, 3).Style.NumberFormat.Format = "dd/MM/yyyy HH:mm:ss";
+                
+                string statusText = Convert.ToString(item.Status) switch
+                {
+                    "0" => "Mới",
+                    "1" => "Đã xem",
+                    "2" => "Báo động giả",
+                    _ => "Không xác định"
+                };
+                ws.Cell(row, 4).Value = statusText;
 
                 var rowRange = ws.Range(row, 1, row, totalCols);
                 if (isAlt)
@@ -515,18 +518,12 @@ namespace PPE_Detection_App.Api.Services
 
             string sql = @"
         SELECT
-            e.Employee_Code,
-            e.Full_Name,
-            e.Department,
             vc.Display_Name,
             vc.Severity_Level,
             vl.Confidence_Score,
             vl.Detected_Time,
             vl.Status
         FROM Violation_Log vl
-        JOIN Employee e
-            ON vl.Employee_Id = e.Employee_Id
-            AND e.Is_Deleted = 0
         LEFT JOIN Violation_Category vc
             ON vl.Category_Id = vc.Id
             AND vc.Is_Deleted = 0

@@ -38,7 +38,13 @@ export function ChartLineMultiple() {
     const loadData = async () => {
       setLoading(true)
       try {
-        const params: any = { startDate, endDate }
+        const params: any = {}
+        if (startDate && endDate) {
+          params.startDate = startDate
+          params.endDate = endDate
+        } else {
+          params.daysRange = 7
+        }
         const response = await fetchDashboardMultiline(params)
         
         if (response && response.success && response.chartData) {
@@ -78,7 +84,7 @@ export function ChartLineMultiple() {
     }
     
     loadData()
-  }, [fetchTrigger, startDate, endDate])
+  }, [fetchTrigger])
 
   return (
     <Card>

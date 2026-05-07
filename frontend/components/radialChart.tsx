@@ -19,13 +19,8 @@ import {
 import { Skeleton } from "@/components/ui/skeleton"
 import { fetchDashboardOverview } from "@/lib/api"
 
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
 
 const chartConfig = {
   count: {
@@ -47,14 +42,23 @@ const chartConfig = {
 
 export function NewViolationsRadial() {
   const [data, setData] = React.useState({ new: 0, viewed: 0, falseAlert: 0, total: 0 })
-  const [daysRange, setDaysRange] = React.useState("2")
   const [loading, setLoading] = React.useState(true)
+  const [startDate, setStartDate] = React.useState("")
+  const [endDate, setEndDate] = React.useState("")
+  const [fetchTrigger, setFetchTrigger] = React.useState(0)
 
   React.useEffect(() => {
     const fetchData = async () => {
       setLoading(true)
       try {
-        const result = await fetchDashboardOverview({ daysRange: parseInt(daysRange) })
+        const params: any = {}
+        if (startDate && endDate) {
+          params.startDate = startDate
+          params.endDate = endDate
+        } else {
+          params.daysRange = 7
+        }
+        const result = await fetchDashboardOverview(params)
         
         if (result.success) {
           let newCount = 0
@@ -85,7 +89,7 @@ export function NewViolationsRadial() {
       }
     }
     fetchData()
-  }, [daysRange])
+  }, [fetchTrigger])
 
   if (loading) {
     return (
@@ -109,22 +113,29 @@ export function NewViolationsRadial() {
 
   return (
     <Card className="flex flex-col h-full">
-      <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
+      <CardHeader className="flex flex-col 2xl:flex-row 2xl:items-center justify-between pb-2 gap-4 space-y-0">
         <div className="flex flex-col gap-1">
-          <CardTitle>Trạng thái</CardTitle>
+          <CardTitle>Trạng thái Thống kê xử lý</CardTitle>
           <CardDescription>Thống kê xử lý</CardDescription>
         </div>
-        <Select value={daysRange} onValueChange={setDaysRange}>
-          <SelectTrigger className="h-8 w-[100px] text-xs">
-            <SelectValue placeholder="Chọn" />
-          </SelectTrigger>
-          <SelectContent align="end">
-            <SelectItem value="1">Hôm nay</SelectItem>
-            <SelectItem value="2">2 ngày</SelectItem>
-            <SelectItem value="7">7 ngày</SelectItem>
-            <SelectItem value="30">30 ngày</SelectItem>
-          </SelectContent>
-        </Select>
+        <div className="flex flex-wrap items-center gap-1">
+          <Input
+            type="date"
+            value={startDate}
+            onChange={(e) => setStartDate(e.target.value)}
+            className="h-8 w-[120px] text-xs"
+          />
+          <span className="text-muted-foreground text-xs">-</span>
+          <Input
+            type="date"
+            value={endDate}
+            onChange={(e) => setEndDate(e.target.value)}
+            className="h-8 w-[120px] text-xs"
+          />
+          <Button size="sm" variant="secondary" className="h-8" onClick={() => setFetchTrigger(prev => prev + 1)}>
+            Lọc
+          </Button>
+        </div>
       </CardHeader>
       <CardContent className="flex-1 pb-0">
         <ChartContainer

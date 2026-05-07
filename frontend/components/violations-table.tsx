@@ -149,8 +149,21 @@ export function ViolationsTable() {
   // Load categories once
   React.useEffect(() => {
     fetchCategories()
-      .then(setCategories)
-      .catch(() => {})
+      .then((res: any) => {
+        if (Array.isArray(res)) {
+          setCategories(res)
+        } else if (res && typeof res === 'object') {
+          if (Array.isArray(res.data)) {
+            setCategories(res.data)
+          } else {
+            const arrayProp = Object.values(res).find(val => Array.isArray(val))
+            if (arrayProp) {
+              setCategories(arrayProp as any[])
+            }
+          }
+        }
+      })
+      .catch((err) => console.error("Lỗi lấy danh sách vi phạm:", err))
   }, [])
 
   React.useEffect(() => {
@@ -255,11 +268,20 @@ export function ViolationsTable() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">Tất cả</SelectItem>
-                  {categories.map((cat) => (
-                    <SelectItem key={cat.id} value={cat.id}>
-                      {cat.displayName}
-                    </SelectItem>
-                  ))}
+                {categories
+                  .filter((cat: any) => {
+                    const catId = cat.id ?? cat.Id ?? cat.category_Id ?? cat.Category_Id ?? cat.categoryId;
+                    return ["NO-Safety Vest", "NO-Hardhat", "NO-Mask", "Fall-Detected"].includes(String(catId));
+                  })
+                  .map((cat: any, index: number) => {
+                    const catId = cat.id ?? cat.Id ?? cat.category_Id ?? cat.Category_Id ?? cat.categoryId ?? index;
+                    const catName = cat.displayName ?? cat.Display_Name ?? cat.display_Name ?? cat.name ?? cat.Name ?? String(catId);
+                    return (
+                      <SelectItem key={String(catId)} value={String(catId)}>
+                        {String(catName)}
+                      </SelectItem>
+                    );
+                })}
                 </SelectContent>
               </Select>
             </div>

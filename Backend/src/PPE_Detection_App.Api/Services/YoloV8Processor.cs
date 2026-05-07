@@ -69,15 +69,11 @@ namespace PPE_Detection_App.Api.Services
         {
             {
                 "YOLOv8", new[]
-                {
-                    "Hardhat",         
-                    "Mask",             
+                {             
                     "NO-Hardhat",       
                     "NO-Mask",          
-                    "NO-Safety Vest",        
-                    "Safety Vest",      
-                    "Machinery",        
-                    "Vehicle"          
+                    "NO-Safety Vest",              
+                    "Machinery"         
                 }
             },
             {
