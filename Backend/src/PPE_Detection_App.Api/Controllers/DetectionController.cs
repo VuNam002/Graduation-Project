@@ -43,14 +43,13 @@ namespace PPE_Detection_App.Api.Controllers
 
                 var detections = _processor.ProcessImage(image).ToList();
 
-                var safetyIssues = detections.Where(d => d.Label.StartsWith("NO-")).ToList();
-                var equipment = detections.Where(d => !d.Label.StartsWith("NO-") && d.Label != "Person" && d.Label != "Fall-Detected").ToList();
+                var targetViolations = new[] { "NO-Hardhat", "NO-Mask", "NO-Safety Vest", "Fall-Detected" };
+                var safetyIssues = detections.Where(d => targetViolations.Contains(d.Label)).ToList();
+                var equipment = detections.Where(d => !d.Label.StartsWith("NO-") && d.Label != "Person" && d.Label != "Fall-Detected" && !targetViolations.Contains(d.Label)).ToList();
                 var persons = detections.Where(d => d.Label == "Person").ToList();
                 var falls = detections.Where(d => d.Label == "Fall-Detected").ToList();
 
-                var allViolations = new List<DetectionResult>();
-                allViolations.AddRange(safetyIssues);
-                allViolations.AddRange(falls);
+                var allViolations = new List<DetectionResult>(safetyIssues);
 
                 var savedViolations = new List<string>();
                 var validCategories = await _dbService.GetAllCategoriesAsync();
@@ -148,7 +147,7 @@ namespace PPE_Detection_App.Api.Controllers
                     {
                         label = d.Label,
                         confidence = Math.Round(d.Confidence * 100, 2),
-                        isSafetyIssue = d.Label.StartsWith("NO-"),
+                        isSafetyIssue = d.Label.StartsWith("NO-") || d.Label == "Fall-Detected",
                         isFallDetected = d.Label == "Fall-Detected",
                         box = new { x = Math.Round(d.Box.X, 2), y = Math.Round(d.Box.Y, 2), width = Math.Round(d.Box.Width, 2), height = Math.Round(d.Box.Height, 2) }
                     }).OrderByDescending(d => d.confidence),

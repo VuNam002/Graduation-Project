@@ -21,9 +21,7 @@ namespace PPE_Detection_App.Api.Services
 
         private readonly List<string> _violationLabels = new List<string>
         {
-            "Fall-Detected", "Gloves", "Goggles", "Hardhat", "Ladder",
-            "NO-Gloves", "NO-Goggles", "NO-Hardhat", "NO-Mask", "NO-Safety Vest",
-            "Person", "Safety Cone", "Safety Vest"
+            "NO-Hardhat", "NO-Mask", "NO-Safety Vest", "Fall-Detected"
         };
 
         private readonly string _outputDirectory;
@@ -195,10 +193,11 @@ namespace PPE_Detection_App.Api.Services
                         using var cleanImageForSave = imageForProcessing.Clone();
 
                         var drawnTextRects = new List<RectangleF>();
-                        foreach (var detection in allViolationDetections)
+                        foreach (var detection in allDetections)
                         {
-                            bool isOnCooldown = !eligibleDetections.Contains(detection);
-                            DrawBoundingBox(imageForProcessing, detection, isViolation: true, isOnCooldown: isOnCooldown, drawnTextRects);
+                            bool isViolation = _violationLabels.Contains(detection.Label);
+                            bool isOnCooldown = isViolation && !eligibleDetections.Contains(detection);
+                            DrawBoundingBox(imageForProcessing, detection, isViolation: isViolation, isOnCooldown: isOnCooldown, drawnTextRects);
                         }
 
                         if (eligibleDetections.Any())
@@ -279,7 +278,7 @@ namespace PPE_Detection_App.Api.Services
         {
             var box = detection.Box;
             var label = $"{detection.Label} ({detection.Confidence:P0})";
-            var color = isOnCooldown ? Color.Yellow : Color.Red;
+            var color = isViolation ? (isOnCooldown ? Color.Yellow : Color.Red) : Color.SpringGreen;
             var rect = new RectangleF((float)box.Left, (float)box.Top, (float)box.Width, (float)box.Height);
 
             image.Mutate(x =>
