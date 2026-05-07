@@ -175,62 +175,6 @@ namespace PPE_Detection_App.Api.Services
 
                         var allDetections = yoloProcessor.ProcessImageWithThresholds(imageForProcessing, currentConf, currentNms, currentModel).ToList();
 
-                        // --- START Tăng cường nhận diện PPE bị thiếu ---
-                        // Nếu AI chỉ bắt được Person mà không có box PPE đè lên, tự động nội suy ra lỗi không mặc PPE
-                        var persons = allDetections.Where(d => d.Label == "Person").ToList();
-                        var requiredPPEs = new[] { 
-                            ("Hardhat", "NO-Hardhat"), 
-                            ("Safety Vest", "NO-Safety Vest"),
-                            ("Mask", "NO-Mask")
-                        };
-                        
-                        var inferredDetections = new List<DetectionResult>();
-
-                        foreach (var person in persons)
-                        {
-                            foreach (var (posLabel, negLabel) in requiredPPEs)
-                            {
-                                bool hasPPE = allDetections.Any(d => 
-                                    (d.Label == posLabel || d.Label == negLabel) && 
-                                    !(d.Box.Left > person.Box.Right || 
-                                      d.Box.Right < person.Box.Left || 
-                                      d.Box.Top > person.Box.Bottom || 
-                                      d.Box.Bottom < person.Box.Top));
-
-                                if (!hasPPE)
-                                {
-                                    float estX = (float)person.Box.Left;
-                                    float estY = (float)person.Box.Top;
-                                    float estW = (float)person.Box.Width;
-                                    float estH = (float)person.Box.Height;
-                                    
-                                    if (negLabel == "NO-Hardhat")
-                                    {
-                                        estH = estH * 0.2f;
-                                    }
-                                    else if (negLabel == "NO-Mask")
-                                    {
-                                        estY = estY + estH * 0.1f;
-                                        estH = estH * 0.2f;
-                                    }
-                                    else if (negLabel == "NO-Safety Vest")
-                                    {
-                                        estY = estY + estH * 0.2f;
-                                        estH = estH * 0.5f;
-                                    }
-
-                                    var inferredBox = new BoundingBox(estX, estY, estW, estH);
-                                    inferredDetections.Add(new DetectionResult(negLabel, person.Confidence * 0.8f, inferredBox));
-                                }
-                            }
-                        }
-                        
-                        if (inferredDetections.Any())
-                        {
-                            allDetections.AddRange(inferredDetections);
-                        }
-                        // --- END Tăng cường nhận diện PPE bị thiếu ---
-
                         var allViolationDetections = allDetections.Where(d => _violationLabels.Contains(d.Label)).ToList();
 
                         var eligibleDetections = new List<DetectionResult>();
@@ -248,6 +192,8 @@ namespace PPE_Detection_App.Api.Services
                             }
                         }
 
+                        using var cleanImageForSave = imageForProcessing.Clone();
+
                         var drawnTextRects = new List<RectangleF>();
                         foreach (var detection in allViolationDetections)
                         {
@@ -257,7 +203,7 @@ namespace PPE_Detection_App.Api.Services
 
                         if (eligibleDetections.Any())
                         {
-                            await HandleViolations(eligibleDetections, allDetections, imageForProcessing, violationRepo, emailService, configuration, faceService, dbService);
+                            await HandleViolations(eligibleDetections, allDetections, cleanImageForSave, violationRepo, emailService, configuration, faceService, dbService);
                         }
 
                         if (_webSocketManager.GetConnectionCount() > 0)
@@ -377,7 +323,7 @@ namespace PPE_Detection_App.Api.Services
         private async Task HandleViolations(
             List<DetectionResult> violations,
             List<DetectionResult> allDetections,
-            Image<Rgba32> image,
+            Image<Rgba32> cleanImage,
             ViolationRepository repo,
             EmailService emailService,
             IConfiguration config,
@@ -387,13 +333,6 @@ namespace PPE_Detection_App.Api.Services
             if (!violations.Any()) return;
 
             var timestamp = DateTime.Now.ToString("yyyyMMdd_HHmmss");
-            var randomSuffix = Path.GetRandomFileName().Split('.')[0].Substring(0, 4);
-            var fileName = $"violation_{timestamp}_{randomSuffix}.jpg";
-            var imagePath = Path.Combine(_outputDirectory, fileName);
-            var relativePath = $"/violations/{fileName}";
-
-            await image.SaveAsJpegAsync(imagePath);
-            var detectedEmployeeNames = new HashSet<string>();
             var groupedViolations = new List<List<DetectionResult>>();
 
             foreach (var v in violations)
@@ -420,106 +359,86 @@ namespace PPE_Detection_App.Api.Services
                     groupedViolations.Add(new List<DetectionResult> { v });
             }
 
+            using var annotatedFullImage = cleanImage.Clone();
+            var globalTextRects = new List<RectangleF>();
+            foreach (var d in allDetections)
+            {
+                DrawBoundingBox(annotatedFullImage, d, isViolation: _violationLabels.Contains(d.Label), isOnCooldown: false, globalTextRects);
+            }
+
             foreach (var group in groupedViolations)
             {
-                var primaryDetection = group.First();
                 string combinedLabels = string.Join(", ", group.Select(g => g.Label).Distinct());
-
                 int? matchedEmployeeId = null;
+                string relativePath = "";
                 try
                 {
-                    var centerX = primaryDetection.Box.Left + primaryDetection.Box.Width / 2;
-                    var centerY = primaryDetection.Box.Top + primaryDetection.Box.Height / 2;
+                    float minX = group.Min(g => g.Box.Left);
+                    float minY = group.Min(g => g.Box.Top);
+                    float maxX = group.Max(g => g.Box.Right);
+                    float maxY = group.Max(g => g.Box.Bottom);
+                    float cx = (minX + maxX) / 2f;
+                    float cy = (minY + maxY) / 2f;
 
-                    BoundingBox targetBox = primaryDetection.Box;
-                    bool hasTargetBox = false;
+                    var personBox = allDetections
+                        .Where(d => d.Label == "Person")
+                        .FirstOrDefault(p => cx >= p.Box.Left && cx <= p.Box.Right && cy >= p.Box.Top && cy <= p.Box.Bottom)?.Box;
 
-                    foreach (var p in allDetections)
+                    float cropX, cropY, cropR, cropB;
+                    if (personBox != null)
                     {
-                        if (p.Label == "Person" &&
-                            centerX >= p.Box.Left && centerX <= p.Box.Right &&
-                            centerY >= p.Box.Top && centerY <= p.Box.Bottom)
-                        {
-                            targetBox = p.Box;
-                            hasTargetBox = true;
-                            _logger.LogInformation($"[FaceRec] Tìm thấy 'Person' chứa lỗi {combinedLabels}, dùng toàn bộ box người.");
-                            break;
-                        }
+                        float expandX = (float)personBox.Width * 0.2f;
+                        float expandY = (float)personBox.Height * 0.2f;
+                        cropX = (float)personBox.Left - expandX;
+                        cropY = (float)personBox.Top - expandY;
+                        cropR = (float)personBox.Right + expandX;
+                        cropB = (float)personBox.Bottom + expandY;
+                    }
+                    else
+                    {
+                        float width = maxX - minX;
+                        float height = maxY - minY;
+                        float expandX = Math.Max(width * 1.5f, cleanImage.Width * 0.15f);
+                        float expandY = Math.Max(height * 2.0f, cleanImage.Height * 0.25f);
+                        cropX = minX - expandX;
+                        cropY = minY - expandY;
+                        cropR = maxX + expandX;
+                        cropB = maxY + expandY;
                     }
 
-                    if (!hasTargetBox)
+                    int finalCropX = (int)Math.Max(0, cropX);
+                    int finalCropY = (int)Math.Max(0, cropY);
+                    int finalCropR = (int)Math.Min(cleanImage.Width, cropR);
+                    int finalCropB = (int)Math.Min(cleanImage.Height, cropB);
+                    int finalCropW = finalCropR - finalCropX;
+                    int finalCropH = finalCropB - finalCropY;
+
+                    if (finalCropW > 0 && finalCropH > 0)
                     {
-                        float estCx = primaryDetection.Box.Left + primaryDetection.Box.Width / 2f;
-                        float estCy = primaryDetection.Box.Top + primaryDetection.Box.Height / 2f;
-                        float estBodyWidth = primaryDetection.Box.Width * 3.0f;
-                        float estBodyHeight = primaryDetection.Box.Height * 4.0f;
+                        var cropRect = new Rectangle(finalCropX, finalCropY, finalCropW, finalCropH);
+                        using var groupImage = annotatedFullImage.Clone(ctx => ctx.Crop(cropRect));
 
-                        switch (primaryDetection.Label)
+                        var randomSuffix = Path.GetRandomFileName().Split('.')[0].Substring(0, 4);
+                        var fileName = $"violation_{timestamp}_{randomSuffix}.jpg";
+                        var imagePath = Path.Combine(_outputDirectory, fileName);
+                        relativePath = $"/violations/{fileName}";
+
+                        await groupImage.SaveAsJpegAsync(imagePath);
+
+                        try
                         {
-                            case "NO-Hardhat":
-                                estCy += primaryDetection.Box.Height * 2.0f;
-                                break;
-
-                            case "NO-Mask":
-                            case "NO-Goggles":
-                                estCy += primaryDetection.Box.Height * 1.0f;
-                                break;
-
-                            case "NO-Safety Vest":
-   
-                                break;
-
-                            case "NO-Gloves":
-                                estCy -= primaryDetection.Box.Height * 1.0f;
-                                break;
-
-                            case "Fall-Detected":
-                                estBodyWidth = primaryDetection.Box.Width * 2.0f;
-                                estBodyHeight = primaryDetection.Box.Height * 2.0f;
-                                break;
+                            string adminEmail = config["EmailSettings:AdminEmail"] ?? "vun197276@gmail.com";
+                            emailService.SendViolationEmail(adminEmail, imagePath, $"Camera Detection (Lỗi: {combinedLabels})", "Không xác định");
                         }
-
-                        targetBox = new BoundingBox(
-                            estCx - estBodyWidth / 2f,
-                            estCy - estBodyHeight / 2f,
-                            estBodyWidth,
-                            estBodyHeight
-                        );
-                        hasTargetBox = true;
-                        _logger.LogInformation($"[FaceRec] Không tìm thấy 'Person', ước tính toàn thân cho lỗi {combinedLabels}.");
-                    }
-
-                    float squareSize = Math.Max(targetBox.Width, targetBox.Height);
-                    float cropCx = targetBox.Left + targetBox.Width / 2f;
-                    float cropCy = targetBox.Top + targetBox.Height / 2f;
-
-                    int cropX = (int)Math.Max(0, cropCx - squareSize / 2f);
-                    int cropY = (int)Math.Max(0, cropCy - squareSize / 2f);
-                    int cropW = (int)Math.Min(image.Width - cropX, squareSize);
-                    int cropH = (int)Math.Min(image.Height - cropY, squareSize);
-
-                    if (cropW > 0 && cropH > 0)
-                    {
-                        var cropRect = new Rectangle(cropX, cropY, cropW, cropH);
-                        using var cropImage = image.Clone(ctx => ctx.Crop(cropRect));
-
-                        image.Mutate(ctx =>
-                        {
-                            ctx.Draw(Color.Cyan, 3f, cropRect);
-                            ctx.DrawText("Body-Crop AI", _font, Color.Cyan, new PointF(cropX, Math.Max(0, cropY - 20)));
-                        });
-
-                        var debugCropPath = Path.Combine(_outputDirectory, $"debug_body_{timestamp}_{randomSuffix}.jpg");
-                        await cropImage.SaveAsJpegAsync(debugCropPath);
-
-                        using var rgbCrop = cropImage.CloneAs<Rgb24>();
-                        var embedding = faceService.GetFaceEmbedding(rgbCrop);
+                        catch { }
                     }
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogWarning($"[FaceRec] Lỗi trích xuất khuôn mặt: {ex.Message}");
+                    _logger.LogWarning($"Error processing crop: {ex.Message}");
                 }
+
+                if (string.IsNullOrEmpty(relativePath)) continue;
 
                 var distinctLabels = group.Select(g => g.Label).Distinct().ToList();
                 foreach (var label in distinctLabels)
@@ -540,20 +459,6 @@ namespace PPE_Detection_App.Api.Services
                     };
                     await repo.InsertViolationLogAsync(log);
                 }
-            }
-
-            _logger.LogInformation($"{groupedViolations.Count} nhóm vi phạm đã được ghi nhận. Ảnh lưu tại {imagePath}");
-
-            try
-            {
-                string adminEmail = config["EmailSettings:AdminEmail"] ?? "vun197276@gmail.com";
-                string namesStr = detectedEmployeeNames.Any() ? string.Join(", ", detectedEmployeeNames) : "Không xác định";
-                string allLabels = string.Join(" | ", groupedViolations.Select(g => string.Join(", ", g.Select(x => x.Label).Distinct())));
-                emailService.SendViolationEmail(adminEmail, imagePath, $"Camera Detection (Lỗi: {allLabels})", namesStr);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Failed to send alert email.");
             }
         }
 

@@ -3,6 +3,7 @@ using Microsoft.ML.OnnxRuntime.Tensors;
 using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.Processing;
 using PPE_Detection_App.Api.Models;
+using System.Text.RegularExpressions;
 
 namespace PPE_Detection_App.Api.Services
 {
@@ -72,8 +73,9 @@ namespace PPE_Detection_App.Api.Services
                 {             
                     "NO-Hardhat",       
                     "NO-Mask",          
-                    "NO-Safety Vest",              
-                    "Machinery"         
+                    "NO-Safety Vest",   
+                    "Machinery",
+                    "Person"
                 }
             },
             {
@@ -107,17 +109,59 @@ namespace PPE_Detection_App.Api.Services
         public const float DefaultNmsThreshold = 0.5f;
         private const int ModelWidth = 640;
         private const int ModelHeight = 640;
+        private readonly Dictionary<string, string[]> _dynamicClassLabels = new(StringComparer.OrdinalIgnoreCase);
 
         public YoloV8Processor(YoloModelProvider modelProvider)
         {
             _modelProvider = modelProvider ?? throw new ArgumentNullException(nameof(modelProvider));
+            
+            _dynamicClassLabels["YOLOv8"] = ExtractLabels(_modelProvider.SessionV8) ?? _classLabelsByModel["YOLOv8"];
+            if (_modelProvider.SessionV11 != null)
+            {
+                _dynamicClassLabels["YOLOv11"] = ExtractLabels(_modelProvider.SessionV11) ?? _classLabelsByModel["YOLOv11"];
+            }
+        }
+
+        private string[]? ExtractLabels(InferenceSession session)
+        {
+            if (session == null) return null;
+            try
+            {
+                if (session.ModelMetadata.CustomMetadataMap.TryGetValue("names", out string namesStr))
+                {
+                    var dict = new Dictionary<int, string>();
+                    int maxIndex = -1;
+                    var matches = Regex.Matches(namesStr, @"(\d+)\s*:\s*['""]([^'""]+)['""]");
+                    foreach (Match match in matches)
+                    {
+                        if (int.TryParse(match.Groups[1].Value, out int idx))
+                        {
+                            dict[idx] = match.Groups[2].Value;
+                            if (idx > maxIndex) maxIndex = idx;
+                        }
+                    }
+                    if (dict.Count > 0)
+                    {
+                        var labels = new string[maxIndex + 1];
+                        for (int i = 0; i <= maxIndex; i++)
+                        {
+                            labels[i] = dict.ContainsKey(i) ? dict[i] : "unknown";
+                        }
+                        return labels;
+                    }
+                }
+            }
+            catch { }
+            return null;
         }
 
         public string[] GetClassLabels(string activeModel = "YOLOv8")
         {
-            return _classLabelsByModel.TryGetValue(activeModel, out var labels)
-                ? labels
-                : _classLabelsByModel["YOLOv8"];
+            if (_dynamicClassLabels.TryGetValue(activeModel, out var dynLabels) && dynLabels != null)
+            {
+                return dynLabels;
+            }
+            return _classLabelsByModel.TryGetValue(activeModel, out var fallback) ? fallback : _classLabelsByModel["YOLOv8"];
         }
 
         public IEnumerable<DetectionResult> ProcessImage(Image image, string activeModel = "YOLOv8")
@@ -130,7 +174,7 @@ namespace PPE_Detection_App.Api.Services
             if (image == null) throw new ArgumentNullException(nameof(image));
 
             var session = activeModel == "YOLOv11" ? _modelProvider.SessionV11 : _modelProvider.SessionV8;
-            var classLabels = GetClassLabels(activeModel); // ← lấy đúng label theo model
+            var classLabels = GetClassLabels(activeModel); 
             var originalWidth = image.Width;
             var originalHeight = image.Height;
 
