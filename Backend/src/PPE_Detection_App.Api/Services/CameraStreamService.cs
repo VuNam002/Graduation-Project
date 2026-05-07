@@ -157,7 +157,6 @@ namespace PPE_Detection_App.Api.Services
                         var configuration = scope.ServiceProvider.GetRequiredService<IConfiguration>();
                         var faceService = scope.ServiceProvider.GetRequiredService<FaceRecognitionService>();
                         var dbService = scope.ServiceProvider.GetRequiredService<DatabaseService>();
-                        var faceMatcherService = scope.ServiceProvider.GetRequiredService<FaceMatcherService>();
 
                         if ((DateTime.UtcNow - lastConfigCheck).TotalSeconds > 10)
                         {
@@ -258,7 +257,7 @@ namespace PPE_Detection_App.Api.Services
 
                         if (eligibleDetections.Any())
                         {
-                            await HandleViolations(eligibleDetections, allDetections, imageForProcessing, violationRepo, emailService, configuration, faceService, dbService, faceMatcherService);
+                            await HandleViolations(eligibleDetections, allDetections, imageForProcessing, violationRepo, emailService, configuration, faceService, dbService);
                         }
 
                         if (_webSocketManager.GetConnectionCount() > 0)
@@ -383,8 +382,7 @@ namespace PPE_Detection_App.Api.Services
             EmailService emailService,
             IConfiguration config,
             FaceRecognitionService faceService,
-            DatabaseService dbService,
-            FaceMatcherService faceMatcherService)
+            DatabaseService dbService)
         {
             if (!violations.Any()) return;
 
@@ -516,13 +514,6 @@ namespace PPE_Detection_App.Api.Services
 
                         using var rgbCrop = cropImage.CloneAs<Rgb24>();
                         var embedding = faceService.GetFaceEmbedding(rgbCrop);
-                        var matchResult = await faceMatcherService.IdentifyEmployeeAsync(embedding);
-                        if (matchResult.Id != null)
-                        {
-                            matchedEmployeeId = matchResult.Id;
-                            if (!string.IsNullOrEmpty(matchResult.Name))
-                                detectedEmployeeNames.Add(matchResult.Name);
-                        }
                     }
                 }
                 catch (Exception ex)

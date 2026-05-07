@@ -173,7 +173,6 @@ export async function fetchDashboardMultiline(
   });
 }
 
-
 export interface DashboardMonthlyParams {
   year?: number;
   month?: number;
@@ -436,27 +435,6 @@ export async function fetchUpdateMeAccount(account: { fullName: string; password
     method: 'PATCH',
     headers: getAuthHeaders(),
     body: JSON.stringify(account),
-  });
-}
-export async function fetUpdateEmployee(employee_Id: number, formData: FormData): Promise<{ success: boolean; message?: string }> {
-  return api<{ success: boolean; message?: string }>(`${API_URL}/Employee/${employee_Id}`, {
-    method: 'PATCH',
-    headers: getAuthHeaders(),
-    body: formData,
-  });
-}
-
-export async function fetchDeleteEmployee(employee_Id: number): Promise<{ success: boolean; message?: string }> {
-  return api<{ success: boolean; message?: string }>(`${API_URL}/Employee/${employee_Id}`, {
-    method: 'DELETE',
-    headers: getAuthHeaders(),
-  });
-}
-
-export async function fetchExcleExportEmployee(): Promise<{ success: boolean; message?: string; fileUrl?: string }> {
-  return api<{ success: boolean; message?: string; fileUrl?: string }>(`${API_URL}/Employee/export`, {
-    method: 'GET',
-    headers: getAuthHeaders(),
   });
 }
 

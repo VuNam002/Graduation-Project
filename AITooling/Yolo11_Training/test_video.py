@@ -3,10 +3,10 @@ from ultralytics import YOLO
 import os
 
 MODEL_PATH = 'weights/best.pt' 
-INPUT_VIDEO = '../test/test3.mp4' 
+INPUT_VIDEO = '../test/test4.mp4' 
 
 OUTPUT_DIRECTORY = 'test_results'
-OUTPUT_VIDEO_NAME = 'output_video3.mp4'
+OUTPUT_VIDEO_NAME = 'output_video4.mp4'
 
 CONFIDENCE_THRESHOLD = 0.02
 

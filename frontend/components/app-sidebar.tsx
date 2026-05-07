@@ -8,9 +8,7 @@ import {
   IconCashPlus ,
   IconXboxX ,
   IconAutomation,
-  IconLayoutDashboard 
 } from "@tabler/icons-react"
-import { GiCctvCamera } from "react-icons/gi";
 import Link from "next/link"
 
 import { useAuth } from "@/lib/auth"
@@ -58,22 +56,6 @@ const data = {
         {
         title: "Danh sách vi phạm",
         url: "/violation"
-        }
-      ]
-    },
-    {
-      title: "Nhân viên",
-      url: "#",
-      icon: IconLayoutDashboard,
-      isActive: false,
-      items: [
-        {
-        title: "Danh sách nhân viên",
-        url: "/employee"
-        },
-        {
-        title: "Thêm nhân viên",
-        url: "/employee/created"
         }
       ]
     },

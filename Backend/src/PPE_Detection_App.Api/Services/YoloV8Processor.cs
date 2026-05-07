@@ -1,4 +1,4 @@
-﻿﻿using Microsoft.ML.OnnxRuntime;
+﻿using Microsoft.ML.OnnxRuntime;
 using Microsoft.ML.OnnxRuntime.Tensors;
 using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.Processing;
@@ -33,7 +33,8 @@ namespace PPE_Detection_App.Api.Services
             logger.LogInformation($"Loading YOLOv8 from: {v8Path}");
             SessionV8 = new InferenceSession(v8Path);
 
-            if (File.Exists(v11Path)) {
+            if (File.Exists(v11Path))
+            {
                 try
                 {
                     logger.LogInformation($"Loading YOLOv11 from: {v11Path}");
@@ -44,7 +45,9 @@ namespace PPE_Detection_App.Api.Services
                     logger.LogError(ex, "Lỗi khi tải mô hình YOLOv11 (File có thể bị hỏng, lỗi Git LFS, hoặc sai định dạng). Hệ thống sẽ tự động dùng YOLOv8 dự phòng.");
                     SessionV11 = SessionV8;
                 }
-            } else {
+            }
+            else
+            {
                 logger.LogWarning($"YOLOv11 model not found. Fallback to YOLOv8.");
                 logger.LogWarning("Hệ thống đã tìm YOLOv11 tại các đường dẫn sau nhưng không thấy:");
                 foreach (var p in possibleV11Paths) logger.LogWarning($"- {p}");
@@ -62,12 +65,46 @@ namespace PPE_Detection_App.Api.Services
     public class YoloV8Processor
     {
         private readonly YoloModelProvider _modelProvider;
-
-        private readonly string[] _classLabels = new[]
+        private readonly Dictionary<string, string[]> _classLabelsByModel = new(StringComparer.OrdinalIgnoreCase)
         {
-            "Fall-Detected", "Gloves", "Goggles", "Hardhat", "Ladder", "Mask",
-            "NO-Gloves", "NO-Goggles", "NO-Hardhat", "NO-Mask", "NO-Safety Vest",
-            "Person", "Safety Cone", "Safety Vest"
+            {
+                "YOLOv8", new[]
+                {
+                    "Hardhat",         
+                    "Mask",             
+                    "NO-Hardhat",       
+                    "NO-Mask",          
+                    "NO-Safety Vest",        
+                    "Safety Vest",      
+                    "Machinery",        
+                    "Vehicle"          
+                }
+            },
+            {
+                "YOLOv11", new[]
+                {
+                    "Fall-Detected",    
+                    "Gloves",           
+                    "Goggles",          
+                    "Hardhat",         
+                    "Ladder",           
+                    "Mask",             
+                    "NO-Gloves",        
+                    "NO-Goggles",       
+                    "NO-Hardhat",       
+                    "NO-Mask",          
+                    "NO-Safety Vest",   
+                    "Person",               
+                    "Safety Vest"       
+                }
+            }
+        };
+
+        private readonly Dictionary<string, string[]> _ppeClassMapping = new(StringComparer.OrdinalIgnoreCase)
+        {
+            { "helmet", new[] { "Hardhat" } },
+            { "vest",   new[] { "Safety Vest" } },
+            { "mask",   new[] { "Mask" } }
         };
 
         public const float DefaultConfidenceThreshold = 0.3f;
@@ -80,7 +117,12 @@ namespace PPE_Detection_App.Api.Services
             _modelProvider = modelProvider ?? throw new ArgumentNullException(nameof(modelProvider));
         }
 
-        public string[] GetClassLabels() => _classLabels;
+        public string[] GetClassLabels(string activeModel = "YOLOv8")
+        {
+            return _classLabelsByModel.TryGetValue(activeModel, out var labels)
+                ? labels
+                : _classLabelsByModel["YOLOv8"];
+        }
 
         public IEnumerable<DetectionResult> ProcessImage(Image image, string activeModel = "YOLOv8")
         {
@@ -92,6 +134,7 @@ namespace PPE_Detection_App.Api.Services
             if (image == null) throw new ArgumentNullException(nameof(image));
 
             var session = activeModel == "YOLOv11" ? _modelProvider.SessionV11 : _modelProvider.SessionV8;
+            var classLabels = GetClassLabels(activeModel); // ← lấy đúng label theo model
             var originalWidth = image.Width;
             var originalHeight = image.Height;
 
@@ -103,7 +146,7 @@ namespace PPE_Detection_App.Api.Services
 
             if (outputTensor == null) return Enumerable.Empty<DetectionResult>();
 
-            return Postprocess(outputTensor, originalWidth, originalHeight, confidenceThreshold, nmsThreshold);
+            return Postprocess(outputTensor, originalWidth, originalHeight, confidenceThreshold, nmsThreshold, classLabels);
         }
 
         private DenseTensor<float> PreprocessImage(Image image)
@@ -135,19 +178,21 @@ namespace PPE_Detection_App.Api.Services
             return tensor;
         }
 
-        private IEnumerable<DetectionResult> Postprocess(Tensor<float> output, int originalWidth, int originalHeight, float confidenceThreshold, float nmsThreshold)
+        private IEnumerable<DetectionResult> Postprocess(
+            Tensor<float> output, int originalWidth, int originalHeight,
+            float confidenceThreshold, float nmsThreshold,
+            string[] classLabels) 
         {
-            var predictions = new List<float[]>();
-
-
             if (output.Dimensions.Length < 3) return Enumerable.Empty<DetectionResult>();
+
             int dim1 = output.Dimensions[1];
             int dim2 = output.Dimensions[2];
-            
+
             int numPredictions = dim1 > dim2 ? dim1 : dim2;
             int numClassesPlusBox = dim1 > dim2 ? dim2 : dim1;
             bool isTransposed = dim1 > dim2;
 
+            var predictions = new List<float[]>();
             for (int i = 0; i < numPredictions; i++)
             {
                 var prediction = new float[numClassesPlusBox];
@@ -181,16 +226,15 @@ namespace PPE_Detection_App.Api.Services
                 boxWidth = Math.Min(boxWidth, originalWidth - x);
                 boxHeight = Math.Min(boxHeight, originalHeight - y);
 
-                // FIX LỖI CRASH: Lấy giá trị nhỏ nhất giữa số lượng class model trả về và số lượng class mình định nghĩa
-                int maxClasses = Math.Min(prediction.Length, _classLabels.Length + 4);
-                
+                int maxClasses = Math.Min(prediction.Length, classLabels.Length + 4);
+
                 for (int i = 4; i < maxClasses; i++)
                 {
                     var score = prediction[i];
                     if (score >= confidenceThreshold)
                     {
                         var labelIndex = i - 4;
-                        results.Add(new DetectionResult(_classLabels[labelIndex], score, new BoundingBox(x, y, boxWidth, boxHeight)));
+                        results.Add(new DetectionResult(classLabels[labelIndex], score, new BoundingBox(x, y, boxWidth, boxHeight)));
                     }
                 }
             }
@@ -208,7 +252,6 @@ namespace PPE_Detection_App.Api.Services
                 var current = results[0];
                 finalResults.Add(current);
                 results.RemoveAt(0);
-
                 results = results.Where(r => r.Label != current.Label || CalculateIoU(current.Box, r.Box) < nmsThreshold).ToList();
             }
             return finalResults;

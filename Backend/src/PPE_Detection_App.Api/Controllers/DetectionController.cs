@@ -16,15 +16,13 @@ namespace PPE_Detection_App.Api.Controllers
         private readonly DatabaseService _dbService;
         private readonly IWebHostEnvironment _env;
         private readonly FaceRecognitionService _faceService;
-        private readonly FaceMatcherService _faceMatcherService;
 
-        public DetectionController(YoloV8Processor processor, DatabaseService dbService, IWebHostEnvironment env, FaceRecognitionService faceService, FaceMatcherService faceMatcherService)
+        public DetectionController(YoloV8Processor processor, DatabaseService dbService, IWebHostEnvironment env, FaceRecognitionService faceService)
         {
             _processor = processor;
             _dbService = dbService;
             _env = env;
             _faceService = faceService;
-            _faceMatcherService = faceMatcherService;
         }
 
         [HttpGet("health")]
@@ -106,8 +104,6 @@ namespace PPE_Detection_App.Api.Controllers
                                     using var cropImage = image.Clone(ctx => ctx.Crop(cropRect));
                                     using var rgbCrop = cropImage.CloneAs<Rgb24>();
                                     var embedding = _faceService.GetFaceEmbedding(rgbCrop);
-                                    var matchResult = await _faceMatcherService.IdentifyEmployeeAsync(embedding);
-                                    matchedEmployeeId = matchResult.Id;
                                 }
                             }
                             catch
