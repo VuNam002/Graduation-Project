@@ -75,10 +75,8 @@ namespace PPE_Detection_App.Api.Services
                     "Safety_Vest",          
                     "Safety_goggles",   
                     "Safety_shoes",
-                    "NO_helmet",
                     "NO_Vest",
                     "NO_goggles",
-                    "No_SafetyShoes",
                     "Person",
                     "Slippers",
                 }

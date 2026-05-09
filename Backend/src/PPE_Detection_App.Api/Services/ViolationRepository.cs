@@ -39,6 +39,8 @@ namespace PPE_Detection_App.Api.Services
 
         public async Task InsertViolationLogAsync(ViolationLog log)
         {
+            if (log.Category_Id == "NO_helmet") return;
+
             using var connection = new SqlConnection(_connectionString);
             string sql = @"
                 INSERT INTO Violation_Log 
@@ -58,7 +60,10 @@ namespace PPE_Detection_App.Api.Services
         {
             using var connection = new SqlConnection(_connectionString);
 
-            var conditions = new List<string> { "vl.Is_Deleted = 0" };
+            var conditions = new List<string> { 
+                "vl.Is_Deleted = 0", 
+                "vl.Category_Id <> 'NO_helmet'" 
+            };
             var parameters = new DynamicParameters();
 
             if (fromDate.HasValue)
@@ -97,13 +102,13 @@ namespace PPE_Detection_App.Api.Services
 
             string dataSql = $@"
                 SELECT 
-                    vl.Id, vl.Category_Id, vc.Display_Name AS Category_DisplayName,
-                    vc.Severity_Level, vc.Color_Code, vl.Image_Path, vl.Confidence_Score,
+                    vl.Id, vl.Category_Id, ISNULL(vc.Display_Name, vl.Category_Id) AS Category_DisplayName,
+                    ISNULL(vc.Severity_Level, 1) AS Severity_Level, ISNULL(vc.Color_Code, '#6b7280') AS Color_Code, vl.Image_Path, vl.Confidence_Score,
                     vl.Detected_Time, vl.Box_X, vl.Box_Y, vl.Box_W, vl.Box_H,
                     vl.Status, vl.Is_Deleted, vl.Employee_Id,
                     e.Full_Name AS Employee_Name, e.Employee_Code
                 FROM Violation_Log vl
-                LEFT JOIN Violation_Category vc ON vl.Category_Id = vc.Id AND vc.Is_Deleted = 0
+                LEFT JOIN Violation_Category vc ON LTRIM(RTRIM(vl.Category_Id)) = LTRIM(RTRIM(vc.Id))
                 LEFT JOIN Employee e ON vl.Employee_Id = e.Employee_Id AND e.Is_Deleted = 0
                 WHERE {whereClause}
                 ORDER BY vl.Detected_Time DESC
@@ -118,13 +123,13 @@ namespace PPE_Detection_App.Api.Services
             using var connection = new SqlConnection(_connectionString);
             string sql = @"
                 SELECT 
-                    vl.*, vc.Display_Name AS Category_DisplayName,
-                    vc.Severity_Level, vc.Color_Code,
+                    vl.*, ISNULL(vc.Display_Name, vl.Category_Id) AS Category_DisplayName,
+                    ISNULL(vc.Severity_Level, 1) AS Severity_Level, ISNULL(vc.Color_Code, '#6b7280') AS Color_Code,
                     e.Full_Name AS Employee_Name, e.Employee_Code
                 FROM Violation_Log vl
-                LEFT JOIN Violation_Category vc ON vl.Category_Id = vc.Id AND vc.Is_Deleted = 0
+                LEFT JOIN Violation_Category vc ON LTRIM(RTRIM(vl.Category_Id)) = LTRIM(RTRIM(vc.Id))
                 LEFT JOIN Employee e ON vl.Employee_Id = e.Employee_Id AND e.Is_Deleted = 0
-                WHERE vl.Id = @Id AND vl.Is_Deleted = 0";
+                WHERE vl.Id = @Id AND vl.Is_Deleted = 0 AND vl.Category_Id <> 'NO_helmet'";
 
             return await connection.QueryFirstOrDefaultAsync<ViolationViewModel>(sql, new { Id = id });
         }

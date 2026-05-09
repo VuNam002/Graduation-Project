@@ -45,7 +45,7 @@ namespace PPE_Detection_App.Api.Controllers
 
                 var targetViolations = new[] { 
                     "NO-Hardhat", "NO-Mask", "Fall-Detected",
-                    "NO-Gloves", "NO-Goggles", "NO_helmet", "NO_Vest", "NO_goggles" 
+                    "NO-Gloves", "NO-Goggles", "NO_Vest", "NO_goggles" 
                 };
 
                 var safetyIssues = detections.Where(d => targetViolations.Contains(d.Label)).ToList();
