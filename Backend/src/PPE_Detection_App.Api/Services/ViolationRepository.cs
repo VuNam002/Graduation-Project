@@ -103,8 +103,8 @@ namespace PPE_Detection_App.Api.Services
                     vl.Status, vl.Is_Deleted, vl.Employee_Id,
                     e.Full_Name AS Employee_Name, e.Employee_Code
                 FROM Violation_Log vl
-                LEFT JOIN Violation_Category vc ON vl.Category_Id = vc.Id
-                LEFT JOIN Employee e ON vl.Employee_Id = e.Employee_Id
+                LEFT JOIN Violation_Category vc ON vl.Category_Id = vc.Id AND vc.Is_Deleted = 0
+                LEFT JOIN Employee e ON vl.Employee_Id = e.Employee_Id AND e.Is_Deleted = 0
                 WHERE {whereClause}
                 ORDER BY vl.Detected_Time DESC
                 OFFSET @Offset ROWS FETCH NEXT @PageSize ROWS ONLY";
@@ -122,8 +122,8 @@ namespace PPE_Detection_App.Api.Services
                     vc.Severity_Level, vc.Color_Code,
                     e.Full_Name AS Employee_Name, e.Employee_Code
                 FROM Violation_Log vl
-                LEFT JOIN Violation_Category vc ON vl.Category_Id = vc.Id
-                LEFT JOIN Employee e ON vl.Employee_Id = e.Employee_Id
+                LEFT JOIN Violation_Category vc ON vl.Category_Id = vc.Id AND vc.Is_Deleted = 0
+                LEFT JOIN Employee e ON vl.Employee_Id = e.Employee_Id AND e.Is_Deleted = 0
                 WHERE vl.Id = @Id AND vl.Is_Deleted = 0";
 
             return await connection.QueryFirstOrDefaultAsync<ViolationViewModel>(sql, new { Id = id });

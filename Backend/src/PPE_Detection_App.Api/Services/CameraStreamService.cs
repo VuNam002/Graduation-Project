@@ -21,7 +21,8 @@ namespace PPE_Detection_App.Api.Services
 
         private readonly List<string> _violationLabels = new List<string>
         {
-            "NO-Hardhat", "NO-Mask", "NO-Safety Vest", "Fall-Detected"
+            "NO-Hardhat", "NO-Mask", "NO-Safety Vest", "Fall-Detected",
+            "NO-Gloves", "NO-Goggles", "NO_helmet", "NO_Vest", "NO_goggles", "No_SafetyShoes", "Slippers"
         };
 
         private readonly string _outputDirectory;

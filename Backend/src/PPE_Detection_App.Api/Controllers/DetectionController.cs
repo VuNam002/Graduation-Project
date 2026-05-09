@@ -43,9 +43,13 @@ namespace PPE_Detection_App.Api.Controllers
 
                 var detections = _processor.ProcessImage(image).ToList();
 
-                var targetViolations = new[] { "NO-Hardhat", "NO-Mask", "NO-Safety Vest", "Fall-Detected" };
+                var targetViolations = new[] { 
+                    "NO-Hardhat", "NO-Mask", "Fall-Detected",
+                    "NO-Gloves", "NO-Goggles", "NO_helmet", "NO_Vest", "NO_goggles" 
+                };
+
                 var safetyIssues = detections.Where(d => targetViolations.Contains(d.Label)).ToList();
-                var equipment = detections.Where(d => !d.Label.StartsWith("NO-") && d.Label != "Person" && d.Label != "Fall-Detected" && !targetViolations.Contains(d.Label)).ToList();
+                var equipment = detections.Where(d => !d.Label.StartsWith("NO-") && !d.Label.StartsWith("NO_", StringComparison.OrdinalIgnoreCase) && d.Label != "Person" && d.Label != "Fall-Detected" && !targetViolations.Contains(d.Label)).ToList();
                 var persons = detections.Where(d => d.Label == "Person").ToList();
                 var falls = detections.Where(d => d.Label == "Fall-Detected").ToList();
 

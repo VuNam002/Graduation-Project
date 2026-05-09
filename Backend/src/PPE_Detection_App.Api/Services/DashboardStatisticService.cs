@@ -26,11 +26,12 @@ namespace PPE_Detection_App.Api.Services
                     SUM(CASE WHEN Status = 0 THEN 1 ELSE 0 END) AS NewViolations,
                     SUM(CASE WHEN Status = 1 THEN 1 ELSE 0 END) AS ViewedViolations,
                     SUM(CASE WHEN Status = 2 THEN 1 ELSE 0 END) AS FalseAlerts,
-                    AVG(Confidence_Score) AS AvgConfidence,
+                    ISNULL(AVG(Confidence_Score), 0) AS AvgConfidence,
                     (
                         SELECT TOP 1 Category_Id 
-                        FROM Violation_Log 
-                        WHERE Detected_Time >= @StartDate AND Detected_Time < @EndDate AND Is_Deleted = 0
+                        FROM Violation_Log vl
+                        JOIN Violation_Category vc ON vl.Category_Id = vc.Id AND vc.Is_Deleted = 0
+                        WHERE vl.Detected_Time >= @StartDate AND vl.Detected_Time < @EndDate AND vl.Is_Deleted = 0
                         GROUP BY Category_Id ORDER BY COUNT(*) DESC
                     ) AS TopCategory
                 FROM Violation_Log
@@ -81,7 +82,7 @@ namespace PPE_Detection_App.Api.Services
                     COUNT(*) AS Count, AVG(vl.Confidence_Score) AS AvgConfidence,
                     CAST(COUNT(*) * 100.0 / SUM(COUNT(*)) OVER() AS DECIMAL(5,2)) AS Percentage
                 FROM Violation_Log vl
-                LEFT JOIN Violation_Category vc ON vl.Category_Id = vc.Id
+                JOIN Violation_Category vc ON vl.Category_Id = vc.Id AND vc.Is_Deleted = 0
                 WHERE {whereClause}
                 GROUP BY vl.Category_Id, vc.Display_Name, vc.Severity_Level, vc.Color_Code
                 ORDER BY Count DESC";
@@ -113,7 +114,7 @@ namespace PPE_Detection_App.Api.Services
                     vl.Category_Id, vc.Display_Name, vc.Severity_Level, vc.Color_Code,
                     COUNT(*) AS Count, AVG(vl.Confidence_Score) AS AvgConfidence
                 FROM Violation_Log vl
-                LEFT JOIN Violation_Category vc ON vl.Category_Id = vc.Id
+                JOIN Violation_Category vc ON vl.Category_Id = vc.Id AND vc.Is_Deleted = 0
                 WHERE {whereClause}
                 GROUP BY vl.Category_Id, vc.Display_Name, vc.Severity_Level, vc.Color_Code
                 ORDER BY Count DESC";
@@ -138,8 +139,8 @@ namespace PPE_Detection_App.Api.Services
         {
             using var connection = new SqlConnection(_connectionString);
             var daysDiff = (currentEndDate - currentStartDate).Days;
-            var previousStartDate = currentStartDate.AddDays(-daysDiff);
-            var previousEndDate = currentStartDate.AddSeconds(-1);
+            var previousStartDate = currentStartDate.AddDays(-(daysDiff + 1));
+            var previousEndDate = currentStartDate;
 
             string sql = @"
                 SELECT 
@@ -151,7 +152,7 @@ namespace PPE_Detection_App.Api.Services
                 CurrentStartDate = currentStartDate,
                 CurrentEndDate = currentEndDate.AddDays(1),
                 PreviousStartDate = previousStartDate,
-                PreviousEndDate = previousEndDate.AddDays(1)
+                PreviousEndDate = previousEndDate
             });
 
             int current = result.CurrentPeriodCount ?? 0;
@@ -206,7 +207,7 @@ namespace PPE_Detection_App.Api.Services
             SUM(CASE WHEN vl.Status = 1 THEN 1 ELSE 0 END) AS ViewedCount,
             SUM(CASE WHEN vl.Status = 2 THEN 1 ELSE 0 END) AS FalseAlertCount
         FROM Violation_Log vl
-        LEFT JOIN Violation_Category vc ON vl.Category_Id = vc.Id
+        JOIN Violation_Category vc ON vl.Category_Id = vc.Id AND vc.Is_Deleted = 0
         WHERE {whereClause}
         GROUP BY 
             CAST(vl.Detected_Time AS DATE),

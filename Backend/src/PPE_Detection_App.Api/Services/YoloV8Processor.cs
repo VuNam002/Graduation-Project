@@ -16,9 +16,9 @@ namespace PPE_Detection_App.Api.Services
         {
             var possibleV8Paths = new[]
             {
-                Path.GetFullPath(Path.Combine(env.ContentRootPath, "..", "..", "..", "AITooling", "yolo_model", "best.onnx")),
-                Path.GetFullPath(Path.Combine(env.ContentRootPath, "AITooling", "yolo_model", "best.onnx")),
-                Path.GetFullPath(Path.Combine(Directory.GetCurrentDirectory(), "AITooling", "yolo_model", "best.onnx"))
+                Path.GetFullPath(Path.Combine(env.ContentRootPath, "..", "..", "..", "AITooling", "yolov8_Training","weights", "best.onnx")),
+                Path.GetFullPath(Path.Combine(env.ContentRootPath, "AITooling", "yolov8_Training", "weights", "best.onnx")),
+                Path.GetFullPath(Path.Combine(Directory.GetCurrentDirectory(), "AITooling", "yolov8_Training", "weights", "best.onnx"))
             };
 
             var possibleV11Paths = new[]
@@ -71,11 +71,16 @@ namespace PPE_Detection_App.Api.Services
             {
                 "YOLOv8", new[]
                 {             
-                    "NO-Hardhat",       
-                    "NO-Mask",          
-                    "NO-Safety Vest",   
-                    "Machinery",
-                    "Person"
+                    "Helmet",       
+                    "Safety_Vest",          
+                    "Safety_goggles",   
+                    "Safety_shoes",
+                    "NO_helmet",
+                    "NO_Vest",
+                    "NO_goggles",
+                    "No_SafetyShoes",
+                    "Person",
+                    "Slippers",
                 }
             },
             {
