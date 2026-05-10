@@ -109,7 +109,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                 className="data-[slot=sidebar-menu-button]:p-1.5!"
               >
                 <Link href="/dashboard">
-                  <IconInnerShadowTop className="size-5!" />
+                <IconInnerShadowTop className="size-5! text-primary" />
                   <span className="text-base font-semibold">Dashboard</span>
                 </Link>
               </SidebarMenuButton>

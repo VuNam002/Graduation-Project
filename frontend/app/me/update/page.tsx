@@ -127,7 +127,7 @@ export default function ProfilePage() {
       <AppSidebar variant="inset"/>
       <SidebarInset>
         <SiteHeader />
-        <div className="flex flex-col gap-6 p-4 md:p-6">
+        <div className="flex flex-col gap-6 p-4 md:p-8 max-w-5xl mx-auto w-full">
           <div className="flex items-center gap-4">
             <Button variant="outline" size="sm" onClick={() => router.back()}>
               <ArrowLeft className="mr-2 h-4 w-4" /> Quay lại

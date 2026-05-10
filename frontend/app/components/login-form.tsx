@@ -64,8 +64,7 @@ export function LoginForm({
   }
 
   return (
-    <div className={cn("fixed inset-0 w-full h-full flex items-center justify-center p-4 overflow-hidden shadow-none", className)} {...props}>
-      {/* Lớp hình nền bao phủ toàn bộ viewport */}
+    <div className={cn("fixed inset-0 w-full h-full flex items-center justify-center p-4 overflow-hidden", className)} {...props}>
       <div className="absolute inset-0 z-0">
         <Image
           src="/utc-15-tang.jpg"
@@ -77,9 +76,18 @@ export function LoginForm({
         <div className="absolute inset-0 bg-gradient-to-br from-black/60 via-black/40 to-black/60 backdrop-blur-[1px]" />
       </div>
 
-      <Card className="relative z-10 w-full max-w-md bg-white/95 backdrop-blur-md shadow-[0_20px_50px_rgba(0,0,0,0.3)] border-none ring-1 ring-white/20">
-        <CardHeader>
-          <CardTitle className="text-3xl font-bold text-center tracking-tight text-slate-900 mb-1">Đăng nhập</CardTitle>
+      <Card className="relative z-10 w-full max-w-[420px] bg-white/95 backdrop-blur-md shadow-[0_20px_60px_rgba(0,0,0,0.4)] border-none ring-1 ring-white/20">
+        <CardHeader className="flex flex-col items-center pt-6 pb-0">
+          <div className="mb-1 p-1 bg-white rounded-full shadow-lg ring-4 ring-slate-100">
+            <Image
+              src="/Logo.jpg"
+              alt="Logo"
+              width={90}
+              height={90}
+              className="rounded-full object-cover"
+            />
+          </div>
+          <CardTitle className="text-2xl font-bold text-center tracking-tight text-slate-900">Đăng nhập</CardTitle>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit}>
@@ -113,7 +121,7 @@ export function LoginForm({
                 <Button type="submit" disabled={loading} className="w-full">
                   {loading ? "Đang đăng nhập..." : "Đăng nhập"}
                 </Button>
-                <FieldDescription className="text-center mt-4">
+                <FieldDescription className="text-center mt-2">
                   Vũ Hà Nam ❤️ TUD-K63{" "}
                 </FieldDescription>
               </Field>
