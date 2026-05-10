@@ -12,6 +12,7 @@ import {
 import Link from "next/link"
 
 import { useAuth } from "@/lib/auth"
+import { canAccess, AppFeature } from "@/lib/types"
 import { NavMain } from "@/components/nav-main"
 import { NavUser } from "@/components/nav-user"
 import {
@@ -30,6 +31,7 @@ const data = {
       title: "Tài khoản",
       url: "#",
       icon: IconCashPlus,
+      feature: "accounts" as AppFeature,
       isActive: false,
       items: [
         {
@@ -46,11 +48,13 @@ const data = {
       title: "Camera",
       url: "/camera",
       icon: IconListDetails,
+      feature: "camera" as AppFeature,
     },
     {
       title: "Vi phạm",
       url: "#",
       icon: IconXboxX ,
+      feature: "violations" as AppFeature,
       isActive: false,
       items: [
         {
@@ -63,6 +67,7 @@ const data = {
       title: "Cài đặt",
       url: "/system",
       icon: IconAutomation,
+      feature: "settings" as AppFeature,
     }
   ],
   navClouds: [
@@ -88,25 +93,32 @@ const data = {
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const { user } = useAuth()
 
+  // Lọc danh sách menu dựa trên quyền của user
+  const filteredNavMain = React.useMemo(() => {
+    return data.navMain.filter(item => canAccess(user, item.feature));
+  }, [user]);
+
   return (
     <Sidebar collapsible="offcanvas" {...props}>
       <SidebarHeader>
         <SidebarMenu>
-          <SidebarMenuItem>
-            <SidebarMenuButton
-              asChild
-              className="data-[slot=sidebar-menu-button]:p-1.5!"
-            >
-              <Link href="/dashboard">
-                <IconInnerShadowTop className="size-5!" />
-                <span className="text-base font-semibold">Dashboard</span>
-              </Link>
-            </SidebarMenuButton>
-          </SidebarMenuItem>
+          {canAccess(user, 'dashboard') && (
+            <SidebarMenuItem>
+              <SidebarMenuButton
+                asChild
+                className="data-[slot=sidebar-menu-button]:p-1.5!"
+              >
+                <Link href="/dashboard">
+                  <IconInnerShadowTop className="size-5!" />
+                  <span className="text-base font-semibold">Dashboard</span>
+                </Link>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+          )}
         </SidebarMenu>
       </SidebarHeader>
       <SidebarContent >
-        <NavMain items={data.navMain} />
+        <NavMain items={filteredNavMain} />
       </SidebarContent>
       <SidebarFooter>
         {user && (

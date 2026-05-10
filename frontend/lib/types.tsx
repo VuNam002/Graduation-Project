@@ -14,7 +14,7 @@ export interface AccountDetail {
   id: string;
   username: string;
   email?: string;
-  role?: string;
+  role?: UserRole;
   createdAt?: string;
   updatedAt?: string;
 }
@@ -39,7 +39,20 @@ export interface LoginRequest {
 export enum UserRole {
   Admin = 'Admin',
   User = 'User',
-  Guest = 'Guest',
+  Staff = 'Staff',
+}
+
+export type AppFeature = 'dashboard' | 'camera' | 'violations' | 'settings' | 'accounts' | 'employees';
+
+export const ROLE_PERMISSIONS: Record<UserRole, AppFeature[]> = {
+  [UserRole.Admin]: ['dashboard', 'camera', 'violations', 'settings', 'accounts', 'employees'],
+  [UserRole.Staff]: ['dashboard', 'camera', 'violations'],
+  [UserRole.User]: ['dashboard', 'camera'],
+};
+
+export function canAccess(user: AccountDetail | null, feature: AppFeature): boolean {
+  if (!user || !user.role) return false;
+  return ROLE_PERMISSIONS[user.role]?.includes(feature) ?? false;
 }
 
 export interface TopCategory {
@@ -250,7 +263,7 @@ export interface Account {
   fullName: string;
   email?: string;
   passwordHash?: string;
-  role: string;
+  role: UserRole;
   status: number;
 }
 
@@ -326,7 +339,7 @@ export interface PaginatedViolationsResponse {
 export interface MeAccountResponse {
   username: string
   fullName: string
-  role: string
+  role: UserRole
   status: number
 }
 

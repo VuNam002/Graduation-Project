@@ -59,8 +59,9 @@ import {
   fetchCategories,
   getBackendUrl,
   fetchExportViolationExcel,
+  getUserFromToken,
 } from "@/lib/api"
-import { ViolationLog, ViolationCategory } from "@/lib/types"
+import { ViolationLog, ViolationCategory, canAccess } from "@/lib/types"
 
 const STATUS_OPTIONS = [
   { value: "all", label: "Tất cả" },
@@ -124,6 +125,12 @@ export function ViolationsTable() {
   const [categoryId, setCategoryId] = React.useState("all")
   const [status, setStatus] = React.useState("all")
   const [page, setPage] = React.useState(1)
+
+  const currentUser = React.useMemo(() => getUserFromToken(), []);
+  
+  if (!canAccess(currentUser, 'violations')) {
+    return <div className="p-4 text-center text-muted-foreground">Bạn không có quyền xem danh sách vi phạm.</div>;
+  }
 
   const totalPages = Math.ceil(totalCount / PAGE_SIZE)
 

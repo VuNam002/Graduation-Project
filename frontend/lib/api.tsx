@@ -1,4 +1,4 @@
-import { LoginResponse, AccountDetail,MeAccountResponse, fetchGetAllEmployeeResponse, DashboardResponse, RecentViolationsResponse, DashboardMonthlyResponse, DashboardWidgetsResponse, Account, CameraResponse, PaginatedViolationsResponse, ViolationCategory, ViolationLog, System, DashboardMultilineResponse, DashboardMultilineParams } from './types';
+import { LoginResponse, AccountDetail,MeAccountResponse, fetchGetAllEmployeeResponse, DashboardResponse, RecentViolationsResponse, DashboardMonthlyResponse, DashboardWidgetsResponse, Account, CameraResponse, PaginatedViolationsResponse, ViolationCategory, ViolationLog, System, DashboardMultilineResponse, DashboardMultilineParams, UserRole } from './types';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || '';
 async function api<T>(url: string, options: RequestInit = {}): Promise<T> {
@@ -75,7 +75,7 @@ function decodeJWT(token: string): AccountDetail | null {
       id: payload.sub || payload.id || payload.userId || '',
       username: payload.username || payload.name || payload.unique_name || '',
       email: payload.email || '',
-      role: payload.role || payload['http://schemas.microsoft.com/ws/2008/06/identity/claims/role'] || 'User',
+      role: (payload.role || payload.Role || payload['http://schemas.microsoft.com/ws/2008/06/identity/claims/role'] || UserRole.User) as UserRole,
     };
   } catch (error) {
     console.error('Failed to decode JWT:', error);
@@ -234,7 +234,7 @@ export async function fetchDeleteAccount(username: string): Promise<{ success: b
   });
 }
 
-export async function fetchCreateAccount(account: { username: string; fullName: string; role: string; password: string }): Promise<{ success: boolean; message?: string }> {
+export async function fetchCreateAccount(account: { username: string; fullName: string; role: UserRole; password: string }): Promise<{ success: boolean; message?: string }> {
   return api<{ success: boolean; message?: string }>(`${API_URL}/Admin/create-account`, {
     method: 'POST',
     headers: getAuthHeaders(),
@@ -275,7 +275,7 @@ export async function logout(): Promise<void> {
       'Content-Type': 'application/json',
     },
   });
-  localStorage.removeItem('token');
+  clearStoredToken();
 }
 
 export async function fetchStopCamera(cameraId: number | string): Promise<CameraResponse> {

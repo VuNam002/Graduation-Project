@@ -2,9 +2,9 @@
 
 import * as React from "react";
 import { useRouter, useParams } from "next/navigation";
-import { fetchDetailAccount, fetchUpdateAccount } from "@/lib/api";
+import { fetchDetailAccount, fetchUpdateAccount, getUserFromToken } from "@/lib/api";
 import { toast } from "sonner";
-import { Account, UserRole, FormData } from "@/lib/types";
+import { Account, UserRole, FormData, isAdmin } from "@/lib/types";
 import { AppSidebar } from "@/components/app-sidebar";
 import { SiteHeader } from "@/components/site-header";
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
@@ -35,6 +35,7 @@ export default function EditAccountPage() {
   const usernameParam = params.username as string;
 
   const [loading, setLoading] = React.useState(false);
+  const [isAuthorized, setIsAuthorized] = React.useState(false);
   const [formData, setFormData] = React.useState<FormData>({
     username: "",
     fullName: "",
@@ -45,6 +46,13 @@ export default function EditAccountPage() {
   const [showPassword, setShowPassword] = React.useState(false);
 
   React.useEffect(() => {
+    const user = getUserFromToken();
+    if (!isAdmin(user)) {
+      toast.error("Bạn không có quyền truy cập trang này");
+      router.push("/dashboard");
+      return;
+    }
+
     if (!usernameParam) return;
 
     const getAccountData = async () => {
@@ -57,6 +65,7 @@ export default function EditAccountPage() {
           passwordHash: "", 
           role: (accountData.role as UserRole) ?? UserRole.User,
         });
+        setIsAuthorized(true);
       } catch {
         toast.error("Không thể tải thông tin tài khoản.");
         router.push("/account");
@@ -129,6 +138,15 @@ export default function EditAccountPage() {
       setLoading(false);
     }
   };
+
+  // Khóa chặt trang: Chỉ render khi đã xác thực quyền Admin thành công
+  if (!isAuthorized) {
+    return (
+      <div className="flex h-screen w-full items-center justify-center">
+        <Loader2 className="h-10 w-10 animate-spin text-primary" />
+      </div>
+    );
+  }
 
   return (
     <SidebarProvider>
@@ -216,7 +234,7 @@ export default function EditAccountPage() {
                       <SelectContent>
                         <SelectItem value={UserRole.Admin}>Admin</SelectItem>
                         <SelectItem value={UserRole.User}>User</SelectItem>
-                        <SelectItem value={UserRole.Guest}>Guest</SelectItem>
+                        <SelectItem value={UserRole.Staff}>Staff</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>

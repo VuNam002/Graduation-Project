@@ -2,9 +2,9 @@
 
 import * as React from "react";
 import { useRouter } from "next/navigation";
-import { fetchCreateAccount } from "@/lib/api";
+import { fetchCreateAccount, getUserFromToken } from "@/lib/api";
 import { toast } from "sonner";
-import { UserRole } from "@/lib/types";
+import { UserRole, isAdmin } from "@/lib/types";
 import { AppSidebar } from "@/components/app-sidebar";
 import { SiteHeader } from "@/components/site-header";
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
@@ -12,7 +12,6 @@ import { Button } from "@/components/ui/button";
 import {
   Card,
   CardContent,
-  CardDescription,
   CardFooter,
   CardHeader,
   CardTitle,
@@ -26,11 +25,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { ArrowLeft, Eye, EyeOff, Check } from "lucide-react";
+import { ArrowLeft, Eye, EyeOff, Check, Loader2 } from "lucide-react";
 
 export default function CreateAccountPage() {
   const router = useRouter();
   const [loading, setLoading] = React.useState(false);
+  const [isAuthorized, setIsAuthorized] = React.useState(false);
   const [formData, setFormData] = React.useState({
     username: "",
     password: "",
@@ -39,6 +39,16 @@ export default function CreateAccountPage() {
   });
   const [errors, setErrors] = React.useState<Partial<Record<keyof typeof formData, string>>>({});
   const [showPassword, setShowPassword] = React.useState(false);
+
+  React.useEffect(() => {
+    const user = getUserFromToken();
+    if (!isAdmin(user)) {
+      toast.error("Bạn không có quyền truy cập trang này");
+      router.push("/dashboard");
+    } else {
+      setIsAuthorized(true);
+    }
+  }, [router]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { id, value } = e.target;
@@ -101,6 +111,15 @@ export default function CreateAccountPage() {
       setLoading(false);
     }
   };
+
+  // Chặn truy cập trái phép ngay lập tức
+  if (!isAuthorized) {
+    return (
+      <div className="flex h-screen w-full items-center justify-center">
+        <Loader2 className="h-10 w-10 animate-spin text-primary" />
+      </div>
+    );
+  }
 
   return (
     <SidebarProvider
@@ -205,7 +224,7 @@ export default function CreateAccountPage() {
                       <SelectContent>
                         <SelectItem value={UserRole.Admin}>Admin</SelectItem>
                         <SelectItem value={UserRole.User}>User</SelectItem>
-                        <SelectItem value={UserRole.Guest}>Guest</SelectItem>
+                        <SelectItem value={UserRole.Staff}>Staff</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>

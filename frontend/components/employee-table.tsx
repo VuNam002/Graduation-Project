@@ -41,9 +41,9 @@ import {
   TableRow,
 } from "@/components/ui/table"
 
-import { Employee } from "@/lib/types"
+import { Employee, isAdmin } from "@/lib/types"
 
-import {fetchGetAllEmployee, fetchDeleteEmployee } from "@/lib/api"
+import {fetchGetAllEmployee, fetchDeleteEmployee, getUserFromToken } from "@/lib/api"
 import Link from "next/link"
 
 const PAGE_SIZE = 6
@@ -54,6 +54,12 @@ export function EmployeesTable() {
   const [loading, setLoading] = React.useState(true)
   const [searchTerm, setSearchTerm] = React.useState("")
   const [page, setPage] = React.useState(1)
+
+  const currentUser = React.useMemo(() => getUserFromToken(), []);
+
+  if (!isAdmin(currentUser)) {
+    return <div className="p-4 text-center text-muted-foreground">Bạn không có quyền xem danh sách nhân sự.</div>;
+  }
 
   const loadData = React.useCallback(async () => {
     setLoading(true)

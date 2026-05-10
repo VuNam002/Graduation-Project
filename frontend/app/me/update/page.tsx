@@ -2,7 +2,8 @@
 
 import * as React from "react";
 import { useRouter } from "next/navigation";
-import { fetchMeAccount, fetchUpdateMeAccount } from "@/lib/api";
+import { fetchMeAccount, fetchUpdateMeAccount, getUserFromToken } from "@/lib/api";
+import { UserRole } from "@/lib/types";
 import { toast } from "sonner";
 import { AppSidebar } from "@/components/app-sidebar";
 import { SiteHeader } from "@/components/site-header";
@@ -30,7 +31,8 @@ export default function ProfilePage() {
 
   const [loading, setLoading] = React.useState(false);
   const [initLoading, setInitLoading] = React.useState(true);
-  const [profileData, setProfileData] = React.useState<{ username: string; role: string }>({ username: "", role: "" });
+  const [isLoggedIn, setIsLoggedIn] = React.useState(false);
+  const [profileData, setProfileData] = React.useState<{ username: string; role: UserRole | "" }>({ username: "", role: "" });
   const [formData, setFormData] = React.useState<FormData>({
     fullName: "",
     password: "",
@@ -39,6 +41,13 @@ export default function ProfilePage() {
   const [showPassword, setShowPassword] = React.useState(false);
 
   React.useEffect(() => {
+    const user = getUserFromToken();
+    if (!user) {
+      router.push("/login");
+      return;
+    }
+    setIsLoggedIn(true);
+
     const getMyProfile = async () => {
       try {
         const data = await fetchMeAccount();
@@ -110,6 +119,8 @@ export default function ProfilePage() {
       setLoading(false);
     }
   };
+
+  if (!isLoggedIn) return null;
 
   return (
     <SidebarProvider>
