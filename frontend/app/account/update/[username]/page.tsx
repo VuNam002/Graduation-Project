@@ -117,10 +117,14 @@ export default function EditAccountPage() {
         });
         router.push("/account");
       } else {
-        toast.error(result.message || "Không thể cập nhật tài khoản");
+        const errorMsg = result.message || "Không thể cập nhật tài khoản";
+        toast.error(errorMsg);
       }
-    } catch {
-      toast.error("Đã xảy ra lỗi khi kết nối đến server");
+    } catch (err) {
+      const errorMsg = err instanceof Error 
+        ? err.message
+        : "Đã xảy ra lỗi khi kết nối đến server";
+      toast.error(errorMsg);
     } finally {
       setLoading(false);
     }

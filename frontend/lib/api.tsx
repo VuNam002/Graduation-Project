@@ -21,9 +21,7 @@ async function api<T>(url: string, options: RequestInit = {}): Promise<T> {
       } catch {
         errorDetails = await response.text();
       }
-      throw new Error(
-        `API error (${response.status}): ${errorDetails || response.statusText}`
-      );
+      throw new Error(errorDetails || response.statusText);
     }
 
     const text = await response.text();
